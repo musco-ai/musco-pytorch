@@ -1,16 +1,17 @@
 # MUSCO: Multi-Stage COmpression of neural networks
 
+This repository contains supplementary code for the paper [MUSCO: Multi-Stage COmpression of neural networks](https://arxiv.org/pdf/1903.09973.pdf). 
+It demonstrates how a neural network with convolutional and fully connected layers can be compressed using iterative tensor decomposition of weight tensors.
 
-This repository is created to demonstrate how neural networks can be accelerated by compressing convolutional layers using different  tensor decompositions.
-
-```tensor_decomposition```  folder contains code to decompose convolutional layers using  Tucker-2/CP3/CP4/BTD-Tucker2/BTD-LL1 tensor decompositions
+```tensor_decomposition```  folder contains code to decompose convolutional and fully connected weights using  Tucker-2/CP3/CP4/ tensor decompositions and SVD decomposition, respectively. 
 
 ```demo``` folder contains several notebooks and scripts that demonstrate how to
  
-  -  compress convolutional layers of any neural network using different tensor decomposition,
+  -  compress convolutional/fully connected layers of any neural network using different tensor decomposition,
   - iteratively compress neural network model by alternating compression and fine-tunning steps.
   
-    
+## Instructions
+
 **Docker container**
 
 To avoid package installation routine, create docker container (titeled ```my_container```, for example) to work in using docker image https://hub.docker.com/r/jgusak/tensor_compression_od. 
@@ -49,3 +50,12 @@ Pretrained models are needed. Please, download them and specify path to the pret
   
   Checkpoints are saved in  ```results``` folder in working directory (to modify default save path, go to ```model_utils/load_utils.py```  and change ```SAVE_ROOT``` variable).
 
+## Citing
+If you used our research, we kindly ask you to cite the corresponding [paper](https://arxiv.org/abs/1903.09973).
+
+@article{gusak2019one,
+  title={One time is not enough: iterative tensor decomposition for neural network compression},
+  author={Gusak, Julia and Kholyavchenko, Maksym and Ponomarev, Evgeny and Markeeva, Larisa and Oseledets, Ivan and Cichocki, Andrzej},
+  journal={arXiv preprint arXiv:1903.09973},
+  year={2019}
+}
