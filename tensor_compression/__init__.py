@@ -1,0 +1,1 @@
+from .compress import get_compressed_model
