@@ -53,9 +53,11 @@ Pretrained models are needed. Please, download them and specify path to the pret
 ## Citing
 If you used our research, we kindly ask you to cite the corresponding [paper](https://arxiv.org/abs/1903.09973).
 
+```
 @article{gusak2019one,
   title={One time is not enough: iterative tensor decomposition for neural network compression},
   author={Gusak, Julia and Kholyavchenko, Maksym and Ponomarev, Evgeny and Markeeva, Larisa and Oseledets, Ivan and Cichocki, Andrzej},
   journal={arXiv preprint arXiv:1903.09973},
   year={2019}
 }
+```
