@@ -1,7 +1,7 @@
 import torch
 import torchvision
 
-PWD = '/workspace/home/jgusak/nntc'
+PWD = '/workspace/home/jgusak/musco'
 PATH_TO_PRETRAINED = '{}/pretrained'.format(PWD)
 SAVE_ROOT = '{}/results'.format(PWD)
 # DATA_ROOT =  '{}/datasets'.format(PWD)
