@@ -10,6 +10,17 @@ It demonstrates how a neural network with convolutional and fully connected laye
   -  compress convolutional/fully connected layers of any neural network using different tensor decomposition,
   - iteratively compress neural network model by alternating compression and fine-tunning steps.
   
+
+## Prerequisites
+- PyTorch-1.0 and torchvision
+- Numpy
+- Scipy
+- Copy
+- Scikit-tensor
+- Tensorly
+- Shutil
+- Os
+
 ## Instructions
 
 **Docker container**
