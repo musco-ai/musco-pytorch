@@ -13,13 +13,14 @@ It demonstrates how a neural network with convolutional and fully connected laye
 
 ## Prerequisites
 - PyTorch-1.0 and torchvision
-- Numpy
-- Scipy
-- Copy
-- Scikit-tensor
-- Tensorly
-- Shutil
-- Os
+- numpy
+- scipy
+- copy
+- scikit-tensor
+- tensorly
+- shutil
+- os
+- absl-py
 
 ## Instructions
 
