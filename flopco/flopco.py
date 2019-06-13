@@ -4,18 +4,16 @@ import torch.nn as nn
 import numpy as np
 from collections import defaultdict
 from functools import partial
+import copy
 
 from .compute_layer_flops import *
 
 
 class FlopCo():
     
-    def __init__(self, model, img_size = (1, 3, 224, 224), device = 'cuda'):
+    def __init__(self, model, img_size = (1, 3, 224, 224), device = 'cpu'):
         self.device = device
         self.model = model
-
-        self.model.eval()
-        self.model.to(device)
 
         self.img_size = img_size
 
@@ -26,14 +24,25 @@ class FlopCo():
         self.macs = None
 
         self.instances  = [nn.Conv2d,
-                           nn.Linear
+                           nn.Linear,
+                           nn.BatchNorm2d,
+                           nn.ReLU,
+                           nn.MaxPool2d,
+                           nn.AvgPool2d,
+                           nn.Softmax
                           ]
+
+#         self.instances  = [nn.Conv2d,
+#                            nn.Linear
+#                           ]
         
         self.get_stats(shapes = True, flops = True, macs = True)
         
         self.total_flops = sum([sum(v) for v in self.flops.values()])
         self.total_macs = sum([sum(v) for v in self.macs.values()])
         
+        del self.model
+        torch.cuda.empty_cache()        
 
 
         
@@ -44,10 +53,25 @@ class FlopCo():
     
     def _save_flops(self, name, mod, inp, out):
         if isinstance(mod, nn.Conv2d):
-            flops = compute_conv_flops(mod, inp[0].shape)
+            flops = compute_conv2d_flops(mod, inp[0].shape, out.shape)
             
         elif isinstance(mod, nn.Linear):
-            flops = compute_fc_flops(mod)
+            flops = compute_fc_flops(mod, inp[0].shape, out.shape)
+            
+        elif isinstance(mod, nn.BatchNorm2d):
+            flops = compute_bn2d_flops(mod, inp[0].shape, out.shape)
+            
+        elif isinstance(mod, nn.ReLU):
+            flops = compute_relu_flops(mod, inp[0].shape, out.shape)
+        
+        elif isinstance(mod, nn.MaxPool2d):
+            flops = compute_maxpool2d_flops(mod, inp[0].shape, out.shape)
+            
+        elif isinstance(mod, nn.AvgPool2d):
+            flops = compute_avgpool2d_flops(mod, inp[0].shape, out.shape)
+            
+        elif isinstance(mod, nn.Softmax):
+            flops = compute_softmax_flops(mod, inp[0].shape, out.shape)
 
         else:
             flops = -1
@@ -57,15 +81,31 @@ class FlopCo():
         
     def _save_macs(self, name, mod, inp, out):
         if isinstance(mod, nn.Conv2d):
-            macs = compute_conv_flops(mod, inp[0].shape, macs = True)
+            flops = compute_conv2d_flops(mod, inp[0].shape, out.shape, macs = True)
             
         elif isinstance(mod, nn.Linear):
-            macs = compute_fc_flops(mod, macs = True)
+            flops = compute_fc_flops(mod, inp[0].shape, out.shape, macs = True)
+            
+        elif isinstance(mod, nn.BatchNorm2d):
+            flops = compute_bn2d_flops(mod, inp[0].shape, out.shape, macs = True)
+            
+        elif isinstance(mod, nn.ReLU):
+            flops = compute_relu_flops(mod, inp[0].shape, out.shape, macs = True)
+        
+        elif isinstance(mod, nn.MaxPool2d):
+            flops = compute_maxpool2d_flops(mod, inp[0].shape, out.shape, macs = True)
+            
+        elif isinstance(mod, nn.AvgPool2d):
+            flops = compute_avgpool2d_flops(mod, inp[0].shape, out.shape, macs = True)
+            
+        elif isinstance(mod, nn.Softmax):
+            flops = compute_softmax_flops(mod, inp[0].shape, out.shape, macs = True)
 
         else:
-            macs = -1
+            flops = -1
+
         
-        self.macs[name].append(macs)
+        self.macs[name].append(flops)
 
 
 
@@ -107,3 +147,5 @@ class FlopCo():
             for name, m in self.model.named_modules():
                 m._forward_pre_hooks.clear()
                 m._forward_hooks.clear()
+                
+        torch.cuda.empty_cache()
