@@ -43,6 +43,7 @@ compressed_model = compressor.compressed_model
 # You have to fine-tune model after each iteration to restore accuracy.
 
 ```
+Please, find more examples in musco/pytorch/examples folder
 
 ## Compress the model
 
