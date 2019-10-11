@@ -7,7 +7,7 @@ It demonstrates how a neural network with convolutional and fully connected laye
 ```
 numpy
 scipy
-absl-py
+scikit-tensor-py3
 flopco-pytorch
 pytorch
 ```
