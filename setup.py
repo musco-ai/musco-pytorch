@@ -25,7 +25,7 @@ setup(
     version="1.0.0",
     description="MUSCO: Multi-Stage COmpression of Neural Networks",
     author="Julia Gusak, Maksym Kholiavchenko, Evgeny Ponomarev, Larisa Markeeva, Andrzej Cichocki, Ivan Oseledets",
-    author_email="y.gusak@skoltech.ru",
+    author_email="julgusak@gmail.com",
     url="https://github.com/musco-ai/musco-pytorch",
     download_url="https://github.com/musco-ai/musco-pytorch/archive/1.0.0.tar.gz",
     license="Apache-2.0",
