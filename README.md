@@ -16,6 +16,7 @@ pytorch
 ```
 pip install musco-pytorch
 ```
+If something is going wrong, try ```pip install git+https://github.com/musco-ai/musco-pytorch```
 
 ## Quick Start
 ```python
