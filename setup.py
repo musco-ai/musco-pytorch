@@ -6,7 +6,7 @@ from setuptools.command.install import install
 class InstallLocalPackage(install):
     def run(self):
         install.run(self)
-        subprocess.call("cd dependencies/tensorly && python setup.py install --force&& cd ../..", shell=True)
+        subprocess.call("cd dependencies/tensorly && python setup.py install --force && cd ../..", shell=True)
 
 
 try:
