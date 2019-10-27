@@ -15,12 +15,12 @@ def load_requirements(file_name):
 
 setup(
     name="musco-pytorch",
-    version="v1.0.2",
+    version="1.0.3",
     description="MUSCO: Multi-Stage COmpression of Neural Networks",
     author="Julia Gusak, Maksym Kholiavchenko, Evgeny Ponomarev, Larisa Markeeva, Andrzej Cichocki, Ivan Oseledets",
     author_email="julgusak@gmail.com",
     url="https://github.com/musco-ai/musco-pytorch",
-    download_url="https://github.com/musco-ai/musco-pytorch/archive/v1.0.2.tar.gz",
+    download_url="https://github.com/musco-ai/musco-pytorch/archive/1.0.3.tar.gz",
     license="Apache-2.0",
     packages=find_packages(),
     install_requires=load_requirements("requirements.txt")
