@@ -8,7 +8,9 @@ It demonstrates how a neural network with convolutional and fully connected laye
 numpy
 scipy
 scikit-tensor-py3
+absl-py
 flopco-pytorch
+tensorly-musco
 pytorch
 ```
 
@@ -16,7 +18,6 @@ pytorch
 ```
 pip install musco-pytorch
 ```
-If something is going wrong, try ```pip install git+https://github.com/musco-ai/musco-pytorch```
 
 ## Quick Start
 ```python

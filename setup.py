@@ -2,13 +2,6 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-
-class InstallLocalPackage(install):
-    def run(self):
-        install.run(self)
-        subprocess.call("cd dependencies/tensorly && python setup.py install --force && cd ../..", shell=True)
-
-
 try:
     from pip._internal.req import parse_requirements
 except ImportError:
@@ -30,6 +23,5 @@ setup(
     download_url="https://github.com/musco-ai/musco-pytorch/archive/v1.0.2.tar.gz",
     license="Apache-2.0",
     packages=find_packages(),
-    cmdclass={"install": InstallLocalPackage},
     install_requires=load_requirements("requirements.txt")
 )
