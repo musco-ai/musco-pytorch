@@ -5,7 +5,7 @@ from torch import nn
 import scipy
 
 import tensorly as tl
-from tensorly.decomposition import parafac_new
+from tensorly.decomposition import parafac
 from tensorly.kruskal_tensor import kruskal_to_tensor
 
 from musco.pytorch.compressor.rank_selection.estimator import estimate_rank_for_compression_rate
@@ -142,21 +142,23 @@ class CP4DecomposedLayer():
         
         if isinstance(self.layer, nn.Sequential):
             # Tensorly case
-            (f_cout, f_cin, f_h, f_w), _ = parafac_new(kruskal_to_tensor((None, self.weight)),\
-                                                       self.rank,\
-                                                       n_iter_max=50000,\
-                                                       init='random',\
-                                                       tol=1e-8,\
-                                                       svd = None) 
+            _, (f_cout, f_cin, f_h, f_w) = parafac(kruskal_to_tensor((None, self.weight)),\
+                                                   self.rank,\
+                                                   n_iter_max=50000,\
+                                                   init='random',\
+                                                   tol=1e-8,\
+                                                   svd = None,\
+                                                   cvg_criterion = 'rec_error') 
 
             
         else:
             # Tensorly case
-            (f_cout, f_cin, f_h, f_w), _ =  parafac_new(self.weight,\
-                                               self.rank, n_iter_max=50000,\
-                                               init='random',\
-                                               tol=1e-8,\
-                                               svd = None)
+            _, (f_cout, f_cin, f_h, f_w) = parafac(self.weight,\
+                                                   self.rank, n_iter_max=50000,\
+                                                   init='random',\
+                                                   tol=1e-8,\
+                                                   svd = None,\
+                                                   cvg_criterion = 'rec_error')
         
         
 #         # Reshape factor matrices to 4D weight tensors
