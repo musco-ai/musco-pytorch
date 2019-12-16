@@ -10,7 +10,7 @@ scipy
 scikit-tensor-py3
 absl-py
 flopco-pytorch
-tensorly-musco
+tensorly
 pytorch
 ```
 
