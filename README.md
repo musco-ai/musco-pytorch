@@ -1,6 +1,6 @@
 # ![](https://user-images.githubusercontent.com/11778655/66068156-bef1a880-e555-11e9-8d26-094071133a11.png) MUSCO: Multi-Stage COmpression of neural networks
 
-This repository contains supplementary code for the paper [MUSCO: Multi-Stage COmpression of neural networks](https://arxiv.org/pdf/1903.09973.pdf). 
+This repository contains supplementary code for the paper [Automated Multi-Stage Compression of Neural Networks](http://openaccess.thecvf.com/content_ICCVW_2019/html/LPCV/Gusak_Automated_Multi-Stage_Compression_of_Neural_Networks_ICCVW_2019_paper.html). 
 It demonstrates how a neural network with convolutional and fully connected layers can be compressed using iterative tensor decomposition of weight tensors.
 
 ## Requirements
@@ -89,10 +89,11 @@ You can compress the model using diffrenet strategies depending on rank selectio
 If you used our research, we kindly ask you to cite the corresponding [paper](https://arxiv.org/abs/1903.09973).
 
 ```
-@article{gusak2019one,
-  title={MUSCO: Multi-Stage Compression of neural networks},
-  author={Gusak, Julia and Kholiavchenko, Maksym and Ponomarev, Evgeny and Markeeva, Larisa and Oseledets, Ivan and Cichocki, Andrzej},
-  journal={arXiv preprint arXiv:1903.09973},
+@inproceedings{gusak2019automated,
+  title={Automated Multi-Stage Compression of Neural Networks},
+  author={Gusak, Julia and Kholiavchenko, Maksym and Ponomarev, Evgeny and Markeeva, Larisa and Blagoveschensky, Philip and Cichocki, Andrzej and Oseledets, Ivan},
+  booktitle={Proceedings of the IEEE International Conference on Computer Vision Workshops},
+  pages={0--0},
   year={2019}
 }
 ```
