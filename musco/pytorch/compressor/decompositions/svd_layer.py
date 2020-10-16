@@ -45,6 +45,8 @@ class SVDDecomposedLayer():
                                                                 self.in_features),
                                                                 rate = param_reduction_rate,
                                                                 key = 'svd')
+            self.rank = int(self.rank)
+            
         ##### create decomposed layers
         self.new_layers = nn.Sequential()
         
@@ -67,10 +69,10 @@ class SVDDecomposedLayer():
     def create_new_layers(self):                       
 
         layers = [] 
-        layers.append(nn.Linear(in_features = int(self.in_features), 
+        layers.append(nn.Linear(in_features = self.in_features, 
                                 out_features = self.rank,
                                  bias = False))
-        layers.append(nn.Linear(in_features = int(self.rank), 
+        layers.append(nn.Linear(in_features = self.rank, 
                                 out_features = self.out_features))
         return layers
     
@@ -153,7 +155,7 @@ class SVDDecomposedConvLayer():
         if rank_selection == 'vbmf':
             self.rank = estimate_vbmf_ranks(self.weight, vbmf_weaken_factor)
         elif rank_selection == 'manual':
-            self.rank = int(rank)
+            self.rank = rank
         elif rank_selection == 'param_reduction':
             if  isinstance(self.layer, nn.Sequential):
                 self.rank = self.layer[0].out_channels//param_reduction_rate
@@ -162,6 +164,8 @@ class SVDDecomposedConvLayer():
                                                                 self.in_channels),
                                                                 rate = param_reduction_rate,
                                                                 key = 'svd')
+        self.rank = int(self.rank)
+        
         ##### create decomposed layers
         self.new_layers = nn.Sequential()
         
@@ -184,11 +188,11 @@ class SVDDecomposedConvLayer():
     def create_new_layers(self):                       
 
         layers = [] 
-        layers.append(nn.Conv2d(in_channels = int(self.in_channels), 
-                                out_channels = int(self.rank),
+        layers.append(nn.Conv2d(in_channels = self.in_channels, 
+                                out_channels = self.rank,
                                 kernel_size = 1, 
                                 bias = False))
-        layers.append(nn.Conv2d(in_channels = int(self.rank),  
+        layers.append(nn.Conv2d(in_channels = self.rank,  
                                 out_channels = self.out_channels,
                                 kernel_size = 1,
                                 padding = self.padding,
