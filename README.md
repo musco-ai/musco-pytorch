@@ -10,7 +10,7 @@ scipy
 scikit-tensor-py3
 absl-py
 flopco-pytorch
-tensorly
+tensorly==0.4.5
 pytorch
 ```
 
@@ -22,7 +22,7 @@ pip install musco-pytorch
 ## Quick Start
 ```python
 from torchvision.models import resnet50
-from from flopco import FlopCo
+from flopco import FlopCo
 from musco.pytorch import CompressorVBMF, CompressorPR, CompressorManual
 
 model = resnet50(pretrained = True)
