@@ -20,6 +20,8 @@ class Tucker2DecomposedLayer():
         self.layer = layer
         self.pretrained = pretrained
         
+        self.min_rank = 8
+        
         if  isinstance(self.layer, nn.Sequential):
             self.cin = self.layer[0].in_channels
             self.cout = self.layer[2].out_channels
@@ -43,25 +45,24 @@ class Tucker2DecomposedLayer():
         self.weight, self.bias = self.get_weights_to_decompose()
         
         if rank_selection == 'vbmf':
-            self.ranks = estimate_vbmf_ranks(self.weight, vbmf_weaken_factor)
+            self.ranks = estimate_vbmf_ranks(self.weight, vbmf_weaken_factor, min_rank = self.min_rank)
             
         elif rank_selection == 'manual':
             # self.ranks = [rank_cout, rank_cin]
             self.ranks = ranks
             
         elif rank_selection == 'param_reduction':
-                if  isinstance(self.layer, nn.Sequential):
-                    self.ranks = estimate_rank_for_compression_rate((self.layer[1].out_channels,\
-                                                                     self.layer[1].in_channels,\
-                                                                     *self.kernel_size),\
-                                                                    rate = param_reduction_rate,\
-                                                                    key = 'tucker2')
-                else:
-                    self.ranks = estimate_rank_for_compression_rate((self.cout,\
-                                                                     self.cin,\
-                                                                     *self.kernel_size),\
-                                                                    rate = param_reduction_rate,\
-                                                                    key = 'tucker2')
+            if  isinstance(self.layer, nn.Sequential):
+                prev_rank = (self.layer[1].out_channels, self.layer[1].in_channels)
+            else:
+                prev_rank = None
+            tensor_shape = (self.cout, self.cin, *self.kernel_size)
+                
+            self.ranks = estimate_rank_for_compression_rate(tensor_shape,
+                                                            rate = param_reduction_rate,
+                                                            key = 'tucker2',
+                                                            prev_rank = prev_rank,
+                                                            min_rank = self.min_rank)
         #print(self.ranks)
 
         ##### create decomposed layers

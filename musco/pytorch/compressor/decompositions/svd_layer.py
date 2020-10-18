@@ -19,6 +19,8 @@ class SVDDecomposedLayer():
         self.layer_name = layer_name
         self.layer = layer
         self.pretrained = pretrained
+        
+        self.min_rank = 8
        
         if  isinstance(self.layer, nn.Sequential):
             self.in_features = self.layer[0].in_features
@@ -32,21 +34,22 @@ class SVDDecomposedLayer():
         self.weight, self.bias = self.get_weights_to_decompose()
         
         if rank_selection == 'vbmf':
-            self.rank = estimate_vbmf_ranks(self.weight, vbmf_weaken_factor)
+            self.rank = estimate_vbmf_ranks(self.weight, vbmf_weaken_factor, min_rank = self.min_rank)
         
         elif rank_selection == 'manual':
             self.rank = rank
             
         elif rank_selection == 'param_reduction':
             if  isinstance(self.layer, nn.Sequential):
-                self.rank = self.layer[0].out_features//param_reduction_rate
+                prev_rank = self.layer[0].out_features
             else:
-                self.rank = estimate_rank_for_compression_rate((self.out_features,
-                                                                self.in_features),
-                                                                rate = param_reduction_rate,
-                                                                key = 'svd')
-            self.rank = int(self.rank)
-            
+                prev_rank = None
+
+            self.rank = estimate_rank_for_compression_rate((self.out_features, self.in_features),
+                                                           rate = param_reduction_rate,
+                                                           key = 'svd',
+                                                           prev_rank = prev_rank,
+                                                           min_rank = self.min_rank)
         ##### create decomposed layers
         self.new_layers = nn.Sequential()
         
@@ -153,19 +156,21 @@ class SVDDecomposedConvLayer():
         self.weight, self.bias = self.get_weights_to_decompose()
         
         if rank_selection == 'vbmf':
-            self.rank = estimate_vbmf_ranks(self.weight, vbmf_weaken_factor)
+            self.rank = estimate_vbmf_ranks(self.weight, vbmf_weaken_factor, min_rank = self.min_rank)
         elif rank_selection == 'manual':
             self.rank = rank
         elif rank_selection == 'param_reduction':
             if  isinstance(self.layer, nn.Sequential):
-                self.rank = self.layer[0].out_channels//param_reduction_rate
+                prev_rank = self.layer[0].out_features
             else:
-                self.rank = estimate_rank_for_compression_rate((self.out_channels,
-                                                                self.in_channels),
-                                                                rate = param_reduction_rate,
-                                                                key = 'svd')
-        self.rank = int(self.rank)
-        
+                prev_rank = None
+
+            self.rank = estimate_rank_for_compression_rate((self.out_features, self.in_features),
+                                                           rate = param_reduction_rate,
+                                                           key = 'svd',
+                                                           prev_rank = prev_rank,
+                                                           min_rank = self.min_rank)
+            
         ##### create decomposed layers
         self.new_layers = nn.Sequential()
         

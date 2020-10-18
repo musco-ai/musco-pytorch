@@ -23,6 +23,8 @@ class CP4DecomposedLayer():
         
         self.layer_name = layer_name
         self.layer = layer
+        
+        self.min_rank = 2
             
         if  isinstance(self.layer, nn.Sequential):
             self.cin = self.layer[0].in_channels
@@ -47,20 +49,19 @@ class CP4DecomposedLayer():
         
         if rank_selection == 'param_reduction':
             if  isinstance(self.layer, nn.Sequential):
-                self.rank = estimate_rank_for_compression_rate((self.layer[1].out_channels,
-                                                                 self.layer[1].in_channels,
-                                                                 *self.kernel_size),
-                                                                rate = param_reduction_rate,
-                                                                key = 'cp4')
+                prev_rank = self.layer[0].out_channels
             else:
-                self.rank = estimate_rank_for_compression_rate((self.cout, self.cin, *self.kernel_size),
-                                            rate = param_reduction_rate,
-                                            key = 'cp4')
+                prev_rank = None
+                
+            tensor_shape = (self.cout, self.cin, *self.kernel_size)
+            self.rank = estimate_rank_for_compression_rate(tensor_shape,
+                                                           rate = param_reduction_rate,
+                                                           key = 'cp4',
+                                                           prev_rank = prev_rank,
+                                                           min_rank = self.min_rank)
         elif rank_selection == 'manual':
             self.rank = rank
         
-        self.rank = int(self.rank)
-            
         ##### create decomposed layers
         self.new_layers = nn.Sequential()
         
@@ -142,22 +143,23 @@ class CP4DecomposedLayer():
         
         if isinstance(self.layer, nn.Sequential):
             # Tensorly case
-            _, (f_cout, f_cin, f_h, f_w) = parafac(kruskal_to_tensor((None, self.weight)),\
-                                                   self.rank,\
-                                                   n_iter_max=50000,\
-                                                   init='random',\
-                                                   tol=1e-8,\
-                                                   svd = None,\
+            _, (f_cout, f_cin, f_h, f_w) = parafac(kruskal_to_tensor((None, self.weight)),
+                                                   self.rank,
+                                                   n_iter_max=5000,
+                                                   init='random',
+                                                   tol=1e-8,
+                                                   svd = None,
                                                    cvg_criterion = 'rec_error') 
 
             
         else:
             # Tensorly case
-            _, (f_cout, f_cin, f_h, f_w) = parafac(self.weight,\
-                                                   self.rank, n_iter_max=50000,\
-                                                   init='random',\
-                                                   tol=1e-8,\
-                                                   svd = None,\
+            _, (f_cout, f_cin, f_h, f_w) = parafac(self.weight,
+                                                   self.rank,
+                                                   n_iter_max=5000,
+                                                   init='random',
+                                                   tol=1e-8,
+                                                   svd = None,
                                                    cvg_criterion = 'rec_error')
         
         
