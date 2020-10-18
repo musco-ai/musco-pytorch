@@ -24,6 +24,7 @@ class CP3DecomposedLayer():
         self.layer = layer
         self.pretrained = pretrained
         
+        self.min_rank = 2
         
         if  isinstance(self.layer, nn.Sequential):
             self.cin = self.layer[0].in_channels
@@ -53,19 +54,19 @@ class CP3DecomposedLayer():
         
         if rank_selection == 'param_reduction':
             if  isinstance(self.layer, nn.Sequential):
-                self.rank = estimate_rank_for_compression_rate((self.layer[1].out_channels,
-                                                                 self.layer[1].in_channels,
-                                                                 *self.kernel_size),
-                                                                rate = param_reduction_rate,
-                                                                key = 'cp3')
+                prev_rank = self.layer[0].out_channels
             else:
-                self.rank = estimate_rank_for_compression_rate((self.cout, self.cin, *self.kernel_size),
-                                            rate = param_reduction_rate,
-                                            key = 'cp3')
+                prev_rank = None
+
+            tensor_shape = (self.cout, self.cin, *self.kernel_size)
+            self.rank = estimate_rank_for_compression_rate(tensor_shape,
+                                                           rate = param_reduction_rate,
+                                                           key = 'cp3',
+                                                           prev_rank = prev_rank,
+                                                           min_rank = self.min_rank)
         elif rank_selection == 'manual':
             self.rank = rank
             
-        self.rank = int(self.rank)
         ##### create decomposed layers
         self.new_layers = nn.Sequential()
         
@@ -152,22 +153,23 @@ class CP3DecomposedLayer():
             bias = self.bias
             if isinstance(self.layer, nn.Sequential):
                 # Tensorly case
-                _, (f_cout, f_cin, f_z) = parafac(kruskal_to_tensor((None, self.weight)),\
-                                                    self.rank,\
-                                                    n_iter_max=50000,\
-                                                    init='random',\
-                                                    tol=1e-8,\
-                                                    svd = None,\
-                                                    cvg_criterion = 'rec_error') 
+                _, (f_cout, f_cin, f_z) = parafac(kruskal_to_tensor((None, self.weight)),
+                                                  self.rank,
+                                                  n_iter_max=5000,
+                                                  init='random',
+                                                  tol=1e-8,
+                                                  svd = None,
+                                                  cvg_criterion = 'rec_error') 
                 
             else:                  
                   # Tensorly case
-                _, (f_cout, f_cin, f_z) = parafac(self.weight,\
-                                                    self.rank, n_iter_max=50000,\
-                                                    init='random',\
-                                                    tol=1e-8,\
-                                                    svd = None,\
-                                                    cvg_criterion = 'rec_error')
+                _, (f_cout, f_cin, f_z) = parafac(self.weight,
+                                                  self.rank,
+                                                  n_iter_max=5000,
+                                                  init='random',
+                                                  tol=1e-8,
+                                                  svd = None,
+                                                  cvg_criterion = 'rec_error')
                 
 #         # Reshape factor matrices to 4D weight tensors
 #         f_cin: (cin, rank) -> (rank, cin, 1, 1)
