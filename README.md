@@ -32,11 +32,12 @@ compressor = CompressorVBMF(model,
                             model_stats,
                             ft_every=5, 
                             nglobal_compress_iters=2)
+
 while not compressor.done:
     # Compress layers
     compressor.compression_step()
     
-    # Fine-tune compressed model.
+    # Fine-tune compressor.compressed_model
 
 compressed_model = compressor.compressed_model
 
@@ -57,7 +58,7 @@ You can compress the model using diffrenet strategies depending on rank selectio
      - how many times to compress each layer (```nglobal_iters = 2```, by default 1)
         
 
-- **CompressorVBMF**:  ranks are determined  by  aglobal analytic solution of variational Bayesian matrix factorization (EVBMF)
+- **CompressorVBMF**:  ranks are determined  by a global analytic solution of variational Bayesian matrix factorization (EVBMF)
     - Tucker2 decomposition is used for nn.Conv2d layers with kernels (n, n), n > 1
     - SVD is used for nn.Linear and nn.Conv2d with kernels (1, 1)
     - You can optionally specify:
@@ -84,7 +85,12 @@ You can compress the model using diffrenet strategies depending on rank selectio
         - which ranks to use (```ranks = {lname : rank for lname in lnames}```, if you don't want to compress layer set ```None``` instead ```rank``` value)
         
  
- 
+## Compiling the documentation
+To build the documentation, from ``docs`` folder run
+
+  - ```make html```  - for HTML doc
+  - ```make pdf``` - for pdf doc  (``rst2pdf`` should be installed, ```pip install rst2pdf```)
+
 ## Citing
 If you used our research, we kindly ask you to cite the corresponding [paper](https://arxiv.org/abs/1903.09973).
 
@@ -99,4 +105,4 @@ If you used our research, we kindly ask you to cite the corresponding [paper](ht
 ```
 
 ## License
-Project is distributed under [Apache License 2.0](https://github.com/musco-ai/musco-tf/blob/master/LICENSE).
+Project is distributed under [BSD-3-Clause License](https://github.com/musco-ai/musco-tf/blob/master/LICENSE).
