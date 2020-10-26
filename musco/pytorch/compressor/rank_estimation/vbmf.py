@@ -17,60 +17,54 @@ def VBMF(Y, cacb, sigma2=None, H=None):
         If sigma2 is unspecified, it is estimated by minimizing the free energy.
         If H is unspecified, it is set to the smallest of the sides of the input Y.
         To estimate cacb, use the function EVBMF().
-
-    Attributes
+        
+        The code is borrowed from https://github.com/CasvandenBogaard/VBMF
+        
+    Parameters
     ----------
     Y : numpy-array
-        Input matrix that is to be factorized. Y has shape (L,M), where L<=M.
-        
+        Input matrix that is to be factorized. Y has shape (L, M), where L <= M.
     cacb : int
         Product of the prior variances of the matrices that factorize the input.
-    
-    sigma2 : int or None (default=None)
-        Variance of the noise on Y.
-        
-    H : int or None (default = None)
-        Maximum rank of the factorized matrices.
+    sigma2 : int or None 
+        Variance of the noise on Y (default is None).
+    H : int or None 
+        Maximum rank of the factorized matrices (default is None).
         
     Returns
     -------
     U : numpy-array
         Left-singular vectors. 
-        
     S : numpy-array
         Diagonal matrix of singular values.
-        
     V : numpy-array
         Right-singular vectors.
-        
     post : dictionary
         Dictionary containing the computed posterior values.
-        
         
     References
     ----------
     .. [1] Nakajima, Shinichi, et al. "Global analytic solution of fully-observed variational Bayesian matrix factorization." Journal of Machine Learning Research 14.Jan (2013): 1-37.
-    
     .. [2] Nakajima, Shinichi, et al. "Perfect dimensionality recovery by variational Bayesian PCA." Advances in Neural Information Processing Systems. 2012.
     """    
     
-    L,M = Y.shape #has to be L<=M
+    L,M = Y.shape # Has to be L<=M
 
     if H is None:
         H = L
     
-    #SVD of the input matrix, max rank of H
+    # SVD of the input matrix, max rank of H
     U,s,V = np.linalg.svd(Y)
     U = U[:,:H]
     s = s[:H]
     V = V[:H].T 
 
-    #Calculate residual
+    # Calculate residual
     residual = 0.
     if H<L:
         residual = np.sum(np.sum(Y**2)-np.sum(s**2))
 
-    #Estimation of the variance when sigma2 is unspecified
+    # Estimation of the variance when sigma2 is unspecified
     if sigma2 is None: 
         upper_bound = (np.sum(s**2)+ residual)/(L+M)
 
@@ -79,24 +73,24 @@ def VBMF(Y, cacb, sigma2=None, H=None):
         else:
             lower_bound = residual/((L-H)*M)
 
-        sigma2_opt = minimize_scalar(VBsigma2, args=(L,M,cacb,s,residual), bounds=[lower_bound, upper_bound], method='Bounded')
+        sigma2_opt = minimize_scalar(_VBsigma2, args=(L,M,cacb,s,residual), bounds=[lower_bound, upper_bound], method='Bounded')
         sigma2 = sigma2_opt.x
 #         print("Estimated sigma2: ", sigma2)
 
-    #Threshold gamma term
-    #Formula above (21) from [1]
+    # Threshold gamma term
+    # Formula above (21) from [1]
     thresh_term = (L+M + sigma2/cacb**2)/2 
     threshold = np.sqrt( sigma2 * (thresh_term + np.sqrt(thresh_term**2 - L*M) ))
               
-    #Number of singular values where gamma>threshold
+    # Number of singular values where gamma > threshold
     pos = np.sum(s>threshold)
 
-    #Formula (10) from [2]
+    # Formula (10) from [2]
     d = np.multiply(s[:pos], 
                     1 - np.multiply(sigma2/(2*s[:pos]**2),
                                     L+M+np.sqrt( (M-L)**2 + 4*s[:pos]**2/cacb**2 )))
 
-    #Computation of the posterior
+    # Computation of the posterior
     post = {}
     zeta = sigma2/(2*L*M) * (L+M+sigma2/cacb**2 - np.sqrt((L+M+sigma2/cacb**2)**2 - 4*L*M))
     post['ma'] = np.zeros(H) 
@@ -119,7 +113,7 @@ def VBMF(Y, cacb, sigma2=None, H=None):
     return U[:,:pos], np.diag(d), V[:,:pos], post
 
 
-def VBsigma2(sigma2,L,M,cacb,s,residual):
+def _VBsigma2(sigma2,L,M,cacb,s,residual):
     H = len(s)
 
     thresh_term = (L+M + sigma2/cacb**2)/2 
@@ -162,37 +156,33 @@ def EVBMF(Y, sigma2=None, H=None, return_UV = False):
     -----
         If sigma2 is unspecified, it is estimated by minimizing the free energy.
         If H is unspecified, it is set to the smallest of the sides of the input Y.
+        
+        This is a modified version of the code from https://github.com/CasvandenBogaard/VBMF
+        
 
-    Attributes
+    Parameters
     ----------
     Y : numpy-array
-        Input matrix that is to be factorized. Y has shape (L,M), where L<=M.
-    
-    sigma2 : int or None (default=None)
-        Variance of the noise on Y.
-        
-    H : int or None (default = None)
-        Maximum rank of the factorized matrices.
+        Input matrix that is to be factorized. Y has shape (L, M), where L <= M.
+    sigma2 : int or None 
+        Variance of the noise on Y (default = None).
+    H : int or None 
+        Maximum rank of the factorized matrices (default = None).
         
     Returns
     -------
     U : numpy-array
         Left-singular vectors. 
-        
     S : numpy-array
         Diagonal matrix of singular values.
-        
     V : numpy-array
         Right-singular vectors.
-        
     post : dictionary
         Dictionary containing the computed posterior values.
-        
         
     References
     ----------
     .. [1] Nakajima, Shinichi, et al. "Global analytic solution of fully-observed variational Bayesian matrix factorization." Journal of Machine Learning Research 14.Jan (2013): 1-37.
-    
     .. [2] Nakajima, Shinichi, et al. "Perfect dimensionality recovery by variational Bayesian PCA." Advances in Neural Information Processing Systems. 2012.     
     """   
     L,M = Y.shape #has to be L<=M
@@ -203,7 +193,7 @@ def EVBMF(Y, sigma2=None, H=None, return_UV = False):
     alpha = L/M
     tauubar = 2.5129*np.sqrt(alpha)
     
-    #SVD of the input matrix, max rank of H
+    # SVD of the input matrix, max rank of H
     start = time.time()
     if return_UV:
         U,s,V = np.linalg.svd(Y)
@@ -216,36 +206,36 @@ def EVBMF(Y, sigma2=None, H=None, return_UV = False):
     end = time.time()
 #     print('-------------------- SVD time: ', end - start)
 
-    #Calculate residual
+    # Calculate residual
     residual = 0.
     if H<L:
         residual = np.sum(np.sum(Y**2)-np.sum(s**2))
 
-    #Estimation of the variance when sigma2 is unspecified
+    # Estimation of the variance when sigma2 is unspecified
     if sigma2 is None: 
         xubar = (1+tauubar)*(1+alpha/tauubar)
         eH_ub = int(np.min([np.ceil(L/(1+alpha))-1, H]))-1
         upper_bound = (np.sum(s**2)+residual)/(L*M)
         lower_bound = np.max([s[eH_ub+1]**2/(M*xubar), np.mean(s[eH_ub+1:]**2)/M])
 
-        scale = 1.#/lower_bound
+        scale = 1.  #/lower_bound
         s = s*np.sqrt(scale)
         residual = residual*scale
         lower_bound = lower_bound*scale
         upper_bound = upper_bound*scale
 
-        sigma2_opt = minimize_scalar(EVBsigma2, args=(L,M,s,residual,xubar), bounds=[lower_bound, upper_bound], method='Bounded')
+        sigma2_opt = minimize_scalar(_EVBsigma2, args=(L,M,s,residual,xubar), bounds=[lower_bound, upper_bound], method='Bounded')
         sigma2 = sigma2_opt.x
 #         print("Estimated sigma2: ", sigma2)
 
-    #Threshold gamma term
+    # Threshold gamma term
     threshold = np.sqrt(M*sigma2*(1+tauubar)*(1+alpha/tauubar))
     pos = np.sum(s>threshold)
 
-    #Formula (15) from [2]
+    # Formula (15) from [2]
     d = np.multiply(s[:pos]/2, 1-np.divide((L+M)*sigma2, s[:pos]**2) + np.sqrt((1-np.divide((L+M)*sigma2, s[:pos]**2))**2 -4*L*M*sigma2**2/s[:pos]**4) )
 
-    #Computation of the posterior
+    # Computation of the posterior
     post = {}
     post['ma'] = np.zeros(H) 
     post['mb'] = np.zeros(H)
@@ -273,7 +263,7 @@ def EVBMF(Y, sigma2=None, H=None, return_UV = False):
     else:
         return None, np.diag(d), None, post
 
-def EVBsigma2(sigma2,L,M,s,residual,xubar):
+def _EVBsigma2(sigma2,L,M,s,residual,xubar):
     H = len(s)
 
     alpha = L/M
@@ -281,7 +271,7 @@ def EVBsigma2(sigma2,L,M,s,residual,xubar):
 
     z1 = x[x>xubar]
     z2 = x[x<=xubar]
-    tau_z1 = tau(z1, alpha)
+    tau_z1 = _tau(z1, alpha)
 
     term1 = np.sum(z2 - np.log(z2))
     term2 = np.sum(z1 - tau_z1)
@@ -292,11 +282,11 @@ def EVBsigma2(sigma2,L,M,s,residual,xubar):
 
     return obj
 
-def phi0(x):
+def _phi0(x):
     return x-np.log(x)
 
-def phi1(x, alpha):
-    return np.log(tau(x,alpha)+1) + alpha*np.log(tau(x,alpha)/alpha + 1) - tau(x,alpha)
+def _phi1(x, alpha):
+    return np.log(_tau(x,alpha)+1) + alpha*np.log(_tau(x,alpha)/alpha + 1) - _tau(x,alpha)
 
-def tau(x, alpha):
+def _tau(x, alpha):
     return 0.5 * (x-(1+alpha) + np.sqrt((x-(1+alpha))**2 - 4*alpha))
