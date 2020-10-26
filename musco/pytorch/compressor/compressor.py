@@ -20,7 +20,7 @@ class Compressor():
     lnames : list of str
         Names of all nn.Conv2d and nn.Linear layers from the initial model.
         After `ranks` is initialized, all non-compressing layers are removed from `lnames` using `pop_noncompressing_lnames()` method.
-        rank_selection  : {'vbmf', 'param_reduction', 'manual'}
+    rank_selection  : {'vbmf', 'param_reduction', 'manual'}
         A method to estimate rank of tensor decompositions, which is applied to nn.Conv2d and nn.Linear layers.
     ranks : collections.defaultdict
         A dictionary ``{lname : rank for lname in lnames}``, where `rank` is *(int or iterable)* or None.
