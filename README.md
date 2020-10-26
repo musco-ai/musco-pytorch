@@ -86,7 +86,9 @@ You can compress the model using diffrenet strategies depending on rank selectio
         
  
 ## Compiling the documentation
-To build the documentation, from ``docs`` folder run
+Install Sphinx: ``` apt-get install python3-sphinx```.
+
+To build the documentation, from ``docs`` folder run:
 
   - ```make html```  - for HTML doc
   - ```make pdf``` - for pdf doc  (``rst2pdf`` should be installed, ```pip install rst2pdf```)
