@@ -51,7 +51,7 @@ def get_compressed_model(model,
         
     See Also
     --------
-    .compressor.Compressor
+    musco.pytorch.compressor.compressor.Compressor
     
     '''
     compressed_model = copy.deepcopy(model)
