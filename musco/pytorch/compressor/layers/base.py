@@ -6,20 +6,12 @@ class DecomposedLayer(object, metaclass = abc.ABCMeta):
     
     Attributes
     ----------
-    layer : nn.Conv2D or nn.Linear or nn.Sequential
-        A layer to compress using a low-rank tensor approximation.
-            - If `layer` is nn.Conv2D or nn.Linear, then the layer is compressed for the first time.
-            - If `layer` is nn.Sequential, then the layer is already represented in a factorized format and compressed further. 
-        Depending on the `layer` type, different approximations are applied.    
-            - If `layer` is nn.Conv2D with 1x1 spacial kernel or nn.Linear, then it is compressed by approximating the weight with truncated SVD.
-            - If `layer` is nn.Conv2D with kxk (k>1) spacial kernel, then it is compressed by approximating the weight with Tucker2, CP3 or CP4 decomposition.
-            - If `layer` is nn.Sequential, then it is further compressed using the same decomposition as during the first compression.
     layer_name : str
-        A name of the `layer`.
+        A name of both initial layer and decomposed layer.
     rank : int or iterable
         A rank of the tensor decomposition, which is used to approximate the layer's weight.
     new_layers : nn.Sequential
-        A sequence of layers that replaces the `layer` after the compression step is done.
+        A sequence of layers (decomposed layer) that replaces the initial layer after the compression step is done.
         
     See Also
     --------
@@ -41,8 +33,14 @@ class DecomposedLayer(object, metaclass = abc.ABCMeta):
         
         Parameters
         ----------
-        layer :  nn.Conv2D or nn.Linear or nn.Sequential
+        layer : nn.Conv2D or nn.Linear or nn.Sequential
             A layer to compress using a low-rank tensor approximation.
+                - If `layer` is nn.Conv2D or nn.Linear, then the layer is compressed for the first time.
+                - If `layer` is nn.Sequential, then the layer is already represented in a factorized format and compressed further. 
+            Depending on the `layer` type, different approximations are applied.    
+                - If `layer` is nn.Conv2D with 1x1 spacial kernel or nn.Linear, then it is compressed by approximating the weight with truncated SVD.
+                - If `layer` is nn.Conv2D with kxk (k>1) spacial kernel, then it is compressed by approximating the weight with Tucker2, CP3 or CP4 decomposition.
+                - If `layer` is nn.Sequential, then it is further compressed using the same decomposition as during the first compression.
         layer_name : str
             A name of the `layer`.
         rank_selection : {'manual', 'param_reduction', 'vbmf'}
@@ -133,7 +131,7 @@ class DecomposedLayer(object, metaclass = abc.ABCMeta):
     
     @abc.abstractmethod
     def compute_new_weights(self, weight, bias):
-        """Approximates extracted weights with a factorized tensor, whose factors are reshaped to new weights.
+        """Approximates extracted weights with a factorized tensor, whose factors are reshaped into new weights.
         
         Parameters
         ----------
