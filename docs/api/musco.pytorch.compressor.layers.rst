@@ -49,3 +49,11 @@ musco.pytorch.compressor.layers.tucker2 module
    :undoc-members:
    :show-inheritance:
 
+musco.pytorch.compressor.layers.utils module
+--------------------------------------------
+
+.. automodule:: musco.pytorch.compressor.layers.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+

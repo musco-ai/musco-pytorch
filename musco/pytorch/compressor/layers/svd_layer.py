@@ -7,15 +7,17 @@ from musco.pytorch.compressor.rank_estimation.estimator import estimate_rank_for
 from .base import DecomposedLayer
 
 
-class SVDDecomposedLayer(DecomposedLayer):
+class SVDDecomposedLayer(nn.Module, DecomposedLayer):
     """Fully connected layer with a weight represented in SVD format.
     
     """
     def __init__(self,
                  layer,
                  layer_name,
+                 algo_kwargs={},
                  **rank_kwargs):
-        super(SVDDecomposedLayer, self).__init__(layer, layer_name)
+        nn.Module.__init__(self)
+        DecomposedLayer.__init__(self, layer, layer_name, algo_kwargs=algo_kwargs)
         
         self.decomposition = 'svd'
         self.min_rank = 8
@@ -35,9 +37,10 @@ class SVDDecomposedLayer(DecomposedLayer):
         self.build_new_layers()
         
         # Compute weights for new layers, initialize new layers
-        self.init_new_layers(*self.compute_new_weights(weight, bias))
+        self.init_new_layers(*self.compute_new_weights(weight, bias, algo_kwargs))
                 
         self.layer = None
+        self.__delattr__('layer')
         weight = None
         bias = None
 
@@ -94,12 +97,12 @@ class SVDDecomposedLayer(DecomposedLayer):
                                                            min_rank = self.min_rank)
     
     
-    def compute_new_weights(self, weight, bias):
+    def compute_new_weights(self, weight, bias, algo_kwargs={}):
         weights = weight.cpu()
         if bias is not None:
             bias = bias.cpu()
 
-        U, S, Vt = np.linalg.svd(weights.data.numpy(), full_matrices=False)
+        U, S, Vt = np.linalg.svd(weights.data.numpy(), **algo_kwargs)
 
         w0 = np.dot(np.diag(np.sqrt(S[0:self.rank])),Vt[0:self.rank, :])
         w1 = np.dot(U[:, 0:self.rank], np.diag(np.sqrt(S[0:self.rank])))
@@ -129,17 +132,22 @@ class SVDDecomposedLayer(DecomposedLayer):
         for j, l in enumerate(layers):
             self.new_layers.add_module('{}-{}'.format(self.layer_name, j), l)
 
+    def forward(self, x):
+        x = self.new_layers(x)
+        return x
 
-class SVDDecomposedConvLayer(DecomposedLayer):
+class SVDDecomposedConvLayer(nn.Module, DecomposedLayer):
     """Convolutional layer with a kernel (1x1 spacial size) represented in SVD format.
     
     """
     def __init__(self,
                  layer,
                  layer_name,
+                 algo_kwargs={},
                  **rank_kwargs):
         
-        super(SVDDecomposedConvLayer, self).__init__(layer, layer_name)
+        nn.Module.__init__(self)
+        DecomposedLayer.__init__(self, layer, layer_name, algo_kwargs=algo_kwargs)
         
         self.decomposition = 'svd'
         self.min_rank = 8
@@ -162,9 +170,10 @@ class SVDDecomposedConvLayer(DecomposedLayer):
         self.build_new_layers()
         
         # Compute weights for new layers, initialize new layers
-        self.init_new_layers(*self.compute_new_weights(weight, bias))
+        self.init_new_layers(*self.compute_new_weights(weight, bias, algo_kwargs))
                 
         self.layer = None
+        self.__delattr__('layer')
         weight = None
         bias = None
 
@@ -227,12 +236,12 @@ class SVDDecomposedConvLayer(DecomposedLayer):
                                                            min_rank = self.min_rank)
             
         
-    def compute_new_weights(self, weight, bias):
+    def compute_new_weights(self, weight, bias, algo_kwargs={}):
         weights = weight.cpu()
         if bias is not None:
             bias = bias.cpu()
 
-        U, S, Vt = np.linalg.svd(weights.data.numpy(), full_matrices=False)
+        U, S, Vt = np.linalg.svd(weights.data.numpy(), **algo_kwargs)
 
         w0 = np.dot(np.diag(np.sqrt(S[0:self.rank])),Vt[0:self.rank, :])
         w1 = np.dot(U[:, 0:self.rank], np.diag(np.sqrt(S[0:self.rank])))
@@ -263,4 +272,9 @@ class SVDDecomposedConvLayer(DecomposedLayer):
         self.new_layers = nn.Sequential()
         
         for j, l in enumerate(layers):
-            self.new_layers.add_module('{}-{}'.format(self.layer_name, j), l)           
+            self.new_layers.add_module('{}-{}'.format(self.layer_name, j), l)      
+
+            
+    def forward(self, x):
+        x = self.new_layers(x)
+        return x

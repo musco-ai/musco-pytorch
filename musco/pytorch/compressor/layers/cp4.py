@@ -13,19 +13,21 @@ from .base import DecomposedLayer
 tl.set_backend('pytorch')
 
 
-class CP4DecomposedLayer(DecomposedLayer):
+class CP4DecomposedLayer(nn.Module, DecomposedLayer):
     """Convolutional layer with a kernel (kxk spacial size, k>1) represented in CP4 format.
     
     References
     ----------
-    .. [1] Lebedev, Vadim, et al. "Speeding-up convolutional neural networks using fine-tuned cp-decomposition." arXiv preprint arXiv:1412.6553 (2014).
+    .. [1] Lebedev, Vadim, et al. "Speeding-up convolutional neural networks using fine-tuned cp-decomposition. (2014)."Proceedings of the International Conference on Learning Representations.
     """
     def __init__(self,
                  layer,
                  layer_name,
+                 algo_kwargs={},
                  **rank_kwargs):
         
-        super(CP4DecomposedLayer, self).__init__(layer, layer_name)
+        nn.Module.__init__(self)
+        DecomposedLayer.__init__(self, layer, layer_name, algo_kwargs=algo_kwargs)
         
         self.decomposition = 'cp4'
         self.min_rank = 2
@@ -37,6 +39,8 @@ class CP4DecomposedLayer(DecomposedLayer):
         self.stride = None
         self.device = None
         
+        self.init_lmbda(layer)
+        
         # Initialize layer parameters
         self.init_layer_params()
         self.init_device()
@@ -46,11 +50,12 @@ class CP4DecomposedLayer(DecomposedLayer):
         self.build_new_layers()
         
         # Compute weights for new layers, initialize new layers
-        self.init_new_layers(*self.compute_new_weights(*self.extract_weights()))
+        self.init_new_layers(*self.compute_new_weights(*self.extract_weights(), algo_kwargs))
                 
         self.layer = None
+        self.__delattr__('layer')
 
-        
+    
     def init_layer_params(self):
         if  isinstance(self.layer, nn.Sequential):
             self.cin = self.layer[0].in_channels
@@ -118,26 +123,15 @@ class CP4DecomposedLayer(DecomposedLayer):
         return weight, bias
     
     
-    def compute_new_weights(self, weight, bias):
-        
+    def compute_new_weights(self, weight, bias, algo_kwargs={}):
         if isinstance(self.layer, nn.Sequential):
-            _, (f_cout, f_cin, f_h, f_w) = parafac(kruskal_to_tensor((None, weight)),
+            lmbda, (f_cout, f_cin, f_h, f_w) = parafac(kruskal_to_tensor((None, weight)),
                                                    self.rank,
-                                                   n_iter_max=5000,
-                                                   init='random',
-                                                   tol=1e-8,
-                                                   svd = None,
-                                                   cvg_criterion = 'rec_error') 
-
-            
+                                                   **algo_kwargs) 
         else:
-            _, (f_cout, f_cin, f_h, f_w) = parafac(weight,
+            lmbda, (f_cout, f_cin, f_h, f_w) = parafac(weight,
                                                    self.rank,
-                                                   n_iter_max=5000,
-                                                   init='random',
-                                                   tol=1e-8,
-                                                   svd = None,
-                                                   cvg_criterion = 'rec_error')
+                                                   **algo_kwargs)
         
         
 #         # Reshape factor matrices to 4D weight tensors
@@ -147,7 +141,7 @@ class CP4DecomposedLayer(DecomposedLayer):
 #         f_cout: (count, rank) -> (count, rank, 1, 1)
 
         # Pytorh case
-        f_cin = f_cin.t().unsqueeze_(2).unsqueeze_(3).contiguous()
+        f_cin = (lmbda * f_cin).t().unsqueeze_(2).unsqueeze_(3).contiguous()
         f_h = f_h.t().unsqueeze_(1).unsqueeze_(3).contiguous()
         f_w = f_w.t().unsqueeze_(1).unsqueeze_(2).contiguous()
         f_cout = f_cout.unsqueeze_(2).unsqueeze_(3).contiguous()
@@ -185,3 +179,6 @@ class CP4DecomposedLayer(DecomposedLayer):
             self.new_layers.add_module('{}-{}'.format(self.layer_name, j), l)
     
     
+    def forward(self, x):
+        x = self.new_layers(x)
+        return x

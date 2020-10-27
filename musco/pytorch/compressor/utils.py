@@ -11,8 +11,9 @@ from .layers.tucker2 import Tucker2DecomposedLayer
 from .layers.cp3 import CP3DecomposedLayer
 from .layers.cp4 import CP4DecomposedLayer
 from .layers.svd_layer import SVDDecomposedLayer, SVDDecomposedConvLayer
-
+from .layers.base import DecomposedLayer
                         
+
 def get_compressed_model(model,
                          layer_names,
                          ranks,
@@ -21,7 +22,8 @@ def get_compressed_model(model,
                          rank_selection,
                          vbmf_weaken_factors=None,
                          param_reduction_rates = None,
-                         return_ranks=False):
+                         return_ranks=False,
+                         all_algo_kwargs=None):
     '''Performs one-stage model compression  by replacing layers' weights with their low-rank approximations.
     
     Parameters
@@ -37,13 +39,18 @@ def get_compressed_model(model,
             - `rank` is *(int or iterable)* and rank != -1 if the kernel of the corresponding layer is approximated using a manually defined rank value.
     decompositions : collections.defaultdict(str)
         A dictionary ``{lname : decomposition for lname in layer_names}``, where decomposition is a type of tensor method applied to approximate layer's weight at the compression step.
-    layer_types : collections.defaultdict(type)
+    layer_types : collections.defaultdict(dict)
         A dictionary ``{lname : linfo}`` that for each layer from the initial model contains its name `lname` and  corresponding information, such as 'type', 'kernel_size', 'groups' (last two fields are defined only for nn.Conv2d).
     vbmf_weaken_factors : collections.defaultdict(float)
         A dictionary ``{lname : vbmf_wf for lname in layer_names}``, where `vbmf_wf` is a weakenen factor used to increase tensor rank found via EVMBF.
     param_reduction_rates :  collections.defaultdict(float)
         A dictionary ``{lname : param_rr for lname in layer_names}``, where `param_rr` is a reduction factor by which the number of layer's parameters decrease after the compression step.
-    
+    all_algo_kwargs :  collections.defaultdict(dict)
+        A dictionary ``{decomposition : algo_kwargs}``, where `decomposition` states for the approximation type and `algo_kwargs` is a dictionary containing parameters for the approximation algorithm. For the available list of algorithm  parameters,
+            - see ``tensorly.decomposition.parafac()`` arguments, if `decomposition` takes values from {'cp3', 'cp4'};
+            - see ``sktensor.tucker.hooi()`` arguments, if `decomposition` is 'tucker2';
+            - see ``np.linalg.svd()`` arguments, if `decomposition` is 'svd'.
+            
     Returns
     -------
     torch.nn.Module
@@ -92,25 +99,26 @@ def get_compressed_model(model,
                                     vbmf_weaken_factor=vbmf_weaken_factor)
             rank_kwargs = vars(rank_kwargs)
             
+            algo_kwargs = all_algo_kwargs[decomposition]
             
             print(lname, decomposition)
             print(rank_kwargs)
                 
             if decomposition == 'tucker2':
-                decomposed_layer = Tucker2DecomposedLayer(layer, subm_names[-1], **rank_kwargs)
+                decomposed_layer = Tucker2DecomposedLayer(layer, subm_names[-1], algo_kwargs, **rank_kwargs)
 
             elif decomposition == 'cp3':
-                decomposed_layer = CP3DecomposedLayer(layer, subm_names[-1], **rank_kwargs)
+                decomposed_layer = CP3DecomposedLayer(layer, subm_names[-1], algo_kwargs, **rank_kwargs)
                 
             elif decomposition == 'cp4':
-                decomposed_layer = CP4DecomposedLayer(layer, subm_names[-1], **rank_kwargs)
+                decomposed_layer = CP4DecomposedLayer(layer, subm_names[-1], algo_kwargs, **rank_kwargs)
                 
             elif decomposition == 'svd':
                 if layer_type == nn.Conv2d:
-                    decomposed_layer = SVDDecomposedConvLayer(layer, subm_names[-1], **rank_kwargs)
+                    decomposed_layer = SVDDecomposedConvLayer(layer, subm_names[-1], algo_kwargs, **rank_kwargs)
                     
                 elif layer_type == nn.Linear:
-                    decomposed_layer = SVDDecomposedLayer(layer, subm_names[-1], **rank_kwargs)
+                    decomposed_layer = SVDDecomposedLayer(layer, subm_names[-1], algo_kwargs, **rank_kwargs)
                     
             new_ranks[lname] = decomposed_layer.rank
             logging.info('\t new rank: {}'.format(new_ranks[lname]))
@@ -119,9 +127,9 @@ def get_compressed_model(model,
                 m = compressed_model.__getattr__(subm_names[0])
                 for s in subm_names[1:-1]:
                     m = m.__getattr__(s)
-                m.__setattr__(subm_names[-1], decomposed_layer.new_layers)
+                m.__setattr__(subm_names[-1], decomposed_layer)
             else:
-                compressed_model.__setattr__(subm_names[-1], decomposed_layer.new_layers)
+                compressed_model.__setattr__(subm_names[-1], decomposed_layer)
         else:
             logging.info('Skip layer {}'.format(lname))
 
@@ -129,3 +137,22 @@ def get_compressed_model(model,
         return compressed_model, new_ranks
     else:
         return compressed_model
+
+
+def standardize_model(model):
+    """Replace custom layers with standard nn.Module layers.
+    
+    Relplace each layer of type DecomposedLayer with nn.Sequential.
+    """
+
+    for mname, m in model.named_modules():
+        if isinstance(m, DecomposedLayer):
+            subm_names = mname.strip().split('.')
+
+            if len(subm_names) > 1:
+                m = model.__getattr__(subm_names[0])
+                for s in subm_names[1:-1]:
+                    m = m.__getattr__(s)
+                m.__setattr__(subm_names[-1], m.new_layers)
+            else:
+                model.__setattr__(subm_names[-1], m.new_layers)

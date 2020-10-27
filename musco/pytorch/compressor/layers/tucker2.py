@@ -7,13 +7,18 @@ from sktensor import dtensor, tucker
 from musco.pytorch.compressor.rank_estimation.estimator import estimate_rank_for_compression_rate, estimate_vbmf_ranks
 from .base import DecomposedLayer
 
-class Tucker2DecomposedLayer(DecomposedLayer):
+class Tucker2DecomposedLayer(nn.Module, DecomposedLayer):
     """Convolutional layer with a kernel (kxk spacial size, k>1) represented in Tucker2 format.
+    
+    References
+    ----------
+    .. [1] Kim, Y.D. et al. (2016). "Compression of deep convolutional neural networks for fast and low power mobile applications". Proceedings of the International Conference on Learning Representations.
     
     """
     
-    def __init__(self, layer, layer_name, **rank_kwargs):
-        super(Tucker2DecomposedLayer, self).__init__(layer, layer_name)
+    def __init__(self, layer, layer_name, algo_kwargs={}, **rank_kwargs):
+        nn.Module.__init__(self)
+        DecomposedLayer.__init__(self, layer, layer_name, algo_kwargs=algo_kwargs)
         
         self.decomposition = 'tucker2'
         self.min_rank = 8
@@ -24,7 +29,7 @@ class Tucker2DecomposedLayer(DecomposedLayer):
         self.padding = None
         self.stride = None
         self.device = None
-        
+                
         # Initialize layer parameters
         self.init_layer_params()
         self.init_device()
@@ -36,9 +41,10 @@ class Tucker2DecomposedLayer(DecomposedLayer):
         self.build_new_layers()
         
         # Compute weights for new layers, initialize new layers
-        self.init_new_layers(*self.compute_new_weights(weight, bias))
+        self.init_new_layers(*self.compute_new_weights(weight, bias, algo_kwargs))
                 
         self.layer = None
+        self.__delattr__('layer')
         weight = None
         bias = None
     
@@ -107,7 +113,7 @@ class Tucker2DecomposedLayer(DecomposedLayer):
             
     
         
-    def compute_new_weights(self, weight, bias):
+    def compute_new_weights(self, weight, bias, algo_kwargs={}):
         weights = dtensor(weight.cpu())
         if bias is not None:
             bias = bias.cpu()
@@ -115,7 +121,7 @@ class Tucker2DecomposedLayer(DecomposedLayer):
         core, (U_cout, U_cin, U_dd) = tucker.hooi(weights,
                                                   [self.rank[0],
                                                    self.rank[1],
-                                                   weights.shape[-1]], init='nvecs')
+                                                   weights.shape[-1]], **algo_kwargs)
         core = core.dot(U_dd.T)
 
         w_cin = np.array(U_cin)
@@ -161,3 +167,9 @@ class Tucker2DecomposedLayer(DecomposedLayer):
         
         for j, l in enumerate(layers):
             self.new_layers.add_module('{}-{}'.format(self.layer_name, j), l)
+            
+    
+    def forward(self, x):
+        
+        x = self.new_layers(x)
+        return x

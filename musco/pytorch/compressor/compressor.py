@@ -73,7 +73,8 @@ class Compressor():
                  vbmf_weakenen_factors=None,
                  param_reduction_rates=None,
                  ft_every=None,
-                 nglobal_compress_iters=None):
+                 nglobal_compress_iters=None,
+                 all_algo_kwargs=None):
         """
 
         Parameters
@@ -98,8 +99,14 @@ class Compressor():
             Initial value for `self.nglobal_compress_iters`.
         ranks : collections.defaultdict(float)
             A dictianary to update `self.ranks`.
+        all_algo_kwargs :  collections.defaultdict(dict)
+            A dictionary ``{decomposition : algo_kwargs}``, where `decomposition` states for the approximation type and `algo_kwargs` is a dictionary containing parameters for the approximation algorithm. For the available list of algorithm  parameters,
+                - see ``tensorly.decomposition.parafac()`` arguments, if `decomposition` takes values from {'cp3', 'cp4'};
+                - see ``sktensor.tucker.hooi()`` arguments, if `decomposition` is 'tucker2';
+                - see ``np.linalg.svd()`` arguments, if `decomposition` is 'svd'.
         """
-
+        self.all_algo_kwargs = all_algo_kwargs
+        
         self.ltypes = model_stats.ltypes
         self.lnames = [lname for lname in self.ltypes.keys() if
                        self.ltypes[lname]['type'] in [nn.Conv2d, nn.Linear]]
@@ -171,7 +178,8 @@ class Compressor():
                 vbmf_weaken_factors=self.vbmf_wfs,
                 param_reduction_rates=self.param_rrs,
                 layer_types=self.ltypes,
-                return_ranks=True)
+                return_ranks=True,
+                all_algo_kwargs = self.all_algo_kwargs)
             self.ranks.update(new_ranks)
 
             self.curr_ncompr_layers += 1
@@ -238,6 +246,10 @@ class CompressorVBMF(Compressor):
     
         from flopco import FlopCo
         from musco.pytorch import CompressorVBMF
+        
+        from musco.pytorch.compressor.layers.utils import get_all_algo_kwargs
+        from musco.pytorch.compressor.utils import standardize_model
+        
         from torchvision.models import resnet50
         import copy
         
@@ -249,12 +261,16 @@ class CompressorVBMF(Compressor):
         # Collect model statistics (FLOPs, params, layer input/output shapes)
         model_stats = FlopCo(model, img_size=(1, 3, 128, 128), device=device)  
         
+        # Set parameters for approximation algorithms
+        all_algo_kwargs = get_all_algo_kwargs()
+        
         # Create a compressor
         compressed_model = copy.deepcopy(model)
         compressor = CompressorVBMF(compressed_model,
                                     model_stats,
                                     ft_every=5, 
-                                    nglobal_compress_iters=2)
+                                    nglobal_compress_iters=2,
+                                    all_algo_kwargs=all_algo_kwargs)
         
         # Alernate compression and fine-tuning steps, while compression is not done
         # (i.e., until each compressing layer is compressed `nglobal_compress_iters` times)
@@ -266,6 +282,9 @@ class CompressorVBMF(Compressor):
         
         # Compressed model is saved at compressor.compressed_model.
         compressed_model = compressor.compressed_model
+        
+        # Replace custom layers with standard nn.Module layers.
+        standardize_model(compressed_model)
     
     See Also
     --------
@@ -281,7 +300,8 @@ class CompressorVBMF(Compressor):
                  ranks=None,
                  vbmf_weakenen_factors=None,
                  ft_every=None,
-                 nglobal_compress_iters=1):
+                 nglobal_compress_iters=1,
+                 all_algo_kwargs=None):
         
         super(CompressorVBMF, self).__init__(
              model,
@@ -291,7 +311,8 @@ class CompressorVBMF(Compressor):
              ranks=ranks,
              vbmf_weakenen_factors=vbmf_weakenen_factors,
              ft_every=ft_every,
-             nglobal_compress_iters=nglobal_compress_iters)
+             nglobal_compress_iters=nglobal_compress_iters,
+             all_algo_kwargs=all_algo_kwargs)
         
 
 class CompressorPR(Compressor):
@@ -310,6 +331,10 @@ class CompressorPR(Compressor):
     
         from flopco import FlopCo
         from musco.pytorch import CompressorPR
+        
+        from musco.pytorch.compressor.layers.utils import get_all_algo_kwargs
+        from musco.pytorch.compressor.utils import standardize_model
+        
         from torchvision.models import resnet50
         import copy
 
@@ -337,6 +362,9 @@ class CompressorPR(Compressor):
 
         # Choose parameter reduction rate for each layer you compress
         param_reduction_rates = {'layer1.2.conv1' : 2, 'layer1.2.conv2' : 3}
+        
+        # Set parameters for approximation algorithms
+        all_algo_kwargs = get_all_algo_kwargs()
 
         # Initialize a compressor
         compressed_model = copy.deepcopy(model)
@@ -346,7 +374,8 @@ class CompressorPR(Compressor):
                                   ft_every=len(compressing_lnames), 
                                   nglobal_compress_iters=2,
                                   param_reduction_rates=param_reduction_rates,
-                                  conv2d_nn_decomposition=conv2d_nn_decomposition)
+                                  conv2d_nn_decomposition=conv2d_nn_decomposition,
+                                  all_algo_kwargs=all_algo_kwargs)
                                   
         # Alernate compression and fine-tuning steps, while compression is not done
         # (i.e., until each compressing layer is compressed `nglobal_compress_iters` times)
@@ -358,6 +387,9 @@ class CompressorPR(Compressor):
         
         # Compressed model is saved at compressor.compressed_model.
         compressed_model = compressor.compressed_model
+        
+        # Replace custom layers with standard nn.Module layers.
+        standardize_model(compressed_model)
     
     See Also
     --------
@@ -373,7 +405,8 @@ class CompressorPR(Compressor):
                  ranks=None,
                  param_reduction_rates=None,
                  ft_every=None,
-                 nglobal_compress_iters=1):
+                 nglobal_compress_iters=1,
+                 all_algo_kwargs=None):
         
         super(CompressorPR, self).__init__(
              model,
@@ -383,7 +416,8 @@ class CompressorPR(Compressor):
              ranks=ranks,
              param_reduction_rates=param_reduction_rates,
              ft_every=ft_every,
-             nglobal_compress_iters=nglobal_compress_iters)
+             nglobal_compress_iters=nglobal_compress_iters,
+             all_algo_kwargs=all_algo_kwargs)
         
         
 class CompressorManual(Compressor):
@@ -402,6 +436,10 @@ class CompressorManual(Compressor):
     
         from flopco import FlopCo
         from musco.pytorch import CompressorManual
+        
+        from musco.pytorch.compressor.layers.utils import get_all_algo_kwargs
+        from musco.pytorch.compressor.utils import standardize_model
+        
         from torchvision.models import resnet50
         import copy
 
@@ -430,6 +468,9 @@ class CompressorManual(Compressor):
         # Set rank != None for layers we compress 
         ranks['layer1.2.conv2'] = (8, 8) # Tucker2 rank
         ranks['layer1.2.conv1'] = 11 # SVD rank
+        
+        # Set parameters for approximation algorithms
+        all_algo_kwargs = get_all_algo_kwargs()
 
         # Initialize a compressor
         compressed_model = copy.deepcopy(model)
@@ -438,7 +479,8 @@ class CompressorManual(Compressor):
                                       ranks=ranks,
                                       ft_every=len(compressing_lnames), 
                                       nglobal_compress_iters=1,
-                                      conv2d_nn_decomposition=conv2d_nn_decomposition)
+                                      conv2d_nn_decomposition=conv2d_nn_decomposition,
+                                      all_algo_kwargs=all_algo_kwargs)
 
         # Alernate compression and fine-tuning steps, while compression is not done
         # (i.e., until each compressing layer is compressed `nglobal_compress_iters` times)
@@ -450,6 +492,9 @@ class CompressorManual(Compressor):
         
         # Compressed model is saved at compressor.compressed_model.
         compressed_model = compressor.compressed_model
+        
+        # Replace custom layers with standard nn.Module layers.
+        standardize_model(compressed_model)
         
     See Also
     --------
@@ -463,7 +508,8 @@ class CompressorManual(Compressor):
                  conv2d_nn_decomposition=None,
                  ranks=None,
                  ft_every=None,
-                 nglobal_compress_iters=1): 
+                 nglobal_compress_iters=1,
+                 all_algo_kwargs=None): 
 
         super(CompressorManual, self).__init__(
                 model,
@@ -474,4 +520,5 @@ class CompressorManual(Compressor):
                 vbmf_weakenen_factors=None,
                 param_reduction_rates=None,
                 ft_every=ft_every,
-                nglobal_compress_iters=nglobal_compress_iters)
+                nglobal_compress_iters=nglobal_compress_iters,
+                all_algo_kwargs=all_algo_kwargs)

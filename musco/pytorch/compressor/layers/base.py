@@ -1,7 +1,7 @@
 import torch.nn as nn
 import abc
 
-class DecomposedLayer(object, metaclass = abc.ABCMeta):
+class DecomposedLayer(object, metaclass=abc.ABCMeta):
     """Base class to build a linear layer, whose weight is represented in a factorized format.
     
     Attributes
@@ -25,11 +25,14 @@ class DecomposedLayer(object, metaclass = abc.ABCMeta):
     def __init__(self,
                  layer,
                  layer_name,
-                 rank_selection = None,
-                 manual_rank = None,
-                 vbmf_weaken_factor = None,
-                 param_reduction_rate = None):
-        """
+                 algo_kwargs={},
+                 rank_selection=None,
+                 manual_rank=None,
+                 vbmf_weaken_factor=None,
+                 param_reduction_rate=None):
+        """Initializes a decomposed layer.
+        
+        Approximates the weight of the initial layer, uses this approximation to initialize a decomposed layer (sequence of new layers) that replaces the initial layer.
         
         Parameters
         ----------
@@ -43,6 +46,11 @@ class DecomposedLayer(object, metaclass = abc.ABCMeta):
                 - If `layer` is nn.Sequential, then it is further compressed using the same decomposition as during the first compression.
         layer_name : str
             A name of the `layer`.
+        algo_kwargs : dict
+            A dictionary containing parameters for the approximation algorithm. For the available list of algorithm  parameters,
+                - see ``tensorly.decomposition.parafac()`` arguments, if `decomposition` takes values from {'cp3', 'cp4'};
+                - see ``sktensor.tucker.hooi()`` arguments, if `decomposition` is 'tucker2';
+                - see ``np.linalg.svd()`` arguments, if `decomposition` is 'svd'.
         rank_selection : {'manual', 'param_reduction', 'vbmf'}
            A method to estimate the rank of the tensor decomposition.
         manual_rank : int or iterable or None
@@ -57,7 +65,11 @@ class DecomposedLayer(object, metaclass = abc.ABCMeta):
         """
         
         self.layer_name = layer_name
-        self.layer = layer
+        
+        if isinstance(layer, DecomposedLayer):
+            self.layer = layer.new_layers
+        else:
+            self.layer = layer
 
         self.rank = None
         self.new_layers = None
@@ -91,11 +103,11 @@ class DecomposedLayer(object, metaclass = abc.ABCMeta):
             
     @abc.abstractmethod
     def estimate_rank(self,
-                      weight = None,
-                      rank_selection = None,
-                      manual_rank = -1,
-                      param_reduction_rate = None,
-                      vbmf_weaken_factor = None):
+                      weight=None,
+                      rank_selection=None,
+                      manual_rank=-1,
+                      param_reduction_rate=None,
+                      vbmf_weaken_factor=None):
         """Estimates the rank of decomposition, which is used to approximate the layer's weight.  
         
         Sets a value for the `rank` attribute.
@@ -130,7 +142,7 @@ class DecomposedLayer(object, metaclass = abc.ABCMeta):
         pass
     
     @abc.abstractmethod
-    def compute_new_weights(self, weight, bias):
+    def compute_new_weights(self, weight, bias, algo_kwargs={}):
         """Approximates extracted weights with a factorized tensor, whose factors are reshaped into new weights.
         
         Parameters
@@ -139,6 +151,8 @@ class DecomposedLayer(object, metaclass = abc.ABCMeta):
             A layer's weight, which is approximated.
         bias : torch.tensor or None
             A layer's bias.
+        algo_kwargs : dict
+            A dictionary containing parameters for the approximation algorithm.
         
         Returns
         -------
@@ -171,4 +185,5 @@ class DecomposedLayer(object, metaclass = abc.ABCMeta):
                 self.new_layers[j].bias.data = b
             else:
                 self.new_layers[j].bias = None 
-    
+                
+                

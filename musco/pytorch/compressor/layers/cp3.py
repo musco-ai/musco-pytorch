@@ -12,7 +12,7 @@ from .base import DecomposedLayer
 
 tl.set_backend('pytorch')
 
-class CP3DecomposedLayer(DecomposedLayer):
+class CP3DecomposedLayer(nn.Module, DecomposedLayer):
     """Convolutional layer with a kernel (kxk spacial size, k>1) represented in CP3 format.
 
     """
@@ -20,9 +20,11 @@ class CP3DecomposedLayer(DecomposedLayer):
     def __init__(self,
                  layer,
                  layer_name,
+                 algo_kwargs={},
                  **rank_kwargs):
         
-        super(CP3DecomposedLayer, self).__init__(layer, layer_name)
+        nn.Module.__init__(self)
+        DecomposedLayer.__init__(self, layer, layer_name, algo_kwargs=algo_kwargs)
         
         self.decomposition = 'cp3'
         self.min_rank = 2
@@ -43,9 +45,10 @@ class CP3DecomposedLayer(DecomposedLayer):
         self.build_new_layers()
         
         # Compute weights for new layers, initialize new layers
-        self.init_new_layers(*self.compute_new_weights(*self.extract_weights()))
+        self.init_new_layers(*self.compute_new_weights(*self.extract_weights(), algo_kwargs))
                 
         self.layer = None
+        self.__delattr__('layer')
         
         
     def init_layer_params(self):
@@ -117,25 +120,15 @@ class CP3DecomposedLayer(DecomposedLayer):
         return weight, bias
     
     
-    def compute_new_weights(self, weight, bias):
-            
+    def compute_new_weights(self, weight, bias, algo_kwargs={}):
         if isinstance(self.layer, nn.Sequential):
-            _, (f_cout, f_cin, f_z) = parafac(kruskal_to_tensor((None, weight)),
+            lmbda, (f_cout, f_cin, f_z) = parafac(kruskal_to_tensor((None, weight)),
                                               self.rank,
-                                              n_iter_max=5000,
-                                              init='random',
-                                              tol=1e-8,
-                                              svd = None,
-                                              cvg_criterion = 'rec_error') 
-
+                                              **algo_kwargs) 
         else:                  
-            _, (f_cout, f_cin, f_z) = parafac(weight,
+            lmbda, (f_cout, f_cin, f_z) = parafac(weight,
                                               self.rank,
-                                              n_iter_max=5000,
-                                              init='random',
-                                              tol=1e-8,
-                                              svd = None,
-                                              cvg_criterion = 'rec_error')
+                                              **algo_kwargs)
                 
 #         # Reshape factor matrices to 4D weight tensors
 #         f_cin: (cin, rank) -> (rank, cin, 1, 1)
@@ -143,7 +136,7 @@ class CP3DecomposedLayer(DecomposedLayer):
 #         f_cout: (count, rank) -> (count, rank, 1, 1)
         
         # Pytorh case
-        f_cin = f_cin.t().unsqueeze_(2).unsqueeze_(3).contiguous()
+        f_cin = (lmbda * f_cin).t().unsqueeze_(2).unsqueeze_(3).contiguous()
         f_z = torch.einsum('hwr->rhw', f_z.resize_((*self.kernel_size, self.rank))\
                           ).unsqueeze_(1).contiguous()
         f_cout = f_cout.unsqueeze_(2).unsqueeze_(3).contiguous()
@@ -175,4 +168,6 @@ class CP3DecomposedLayer(DecomposedLayer):
             self.new_layers.add_module('{}-{}'.format(self.layer_name, j), l)
         
     
-
+    def forward(self, x):
+        x = self.new_layers(x)
+        return x
