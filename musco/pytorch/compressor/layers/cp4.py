@@ -18,7 +18,7 @@ class CP4DecomposedLayer(nn.Module, DecomposedLayer):
     
     References
     ----------
-    .. [1] Lebedev, Vadim, et al. "Speeding-up convolutional neural networks using fine-tuned cp-decomposition. (2014)."Proceedings of the International Conference on Learning Representations.
+    .. [1] Lebedev, Vadim, et al. (2014). "Speeding-up convolutional neural networks using fine-tuned cp-decomposition."Proceedings of the International Conference on Learning Representations.
     """
     def __init__(self,
                  layer,
@@ -38,8 +38,6 @@ class CP4DecomposedLayer(nn.Module, DecomposedLayer):
         self.padding = None
         self.stride = None
         self.device = None
-        
-        self.init_lmbda(layer)
         
         # Initialize layer parameters
         self.init_layer_params()

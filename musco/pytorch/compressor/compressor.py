@@ -3,6 +3,7 @@ from collections import defaultdict
 import copy
 
 from musco.pytorch.compressor.utils import get_compressed_model
+from musco.pytorch.compressor.layers.utils import get_all_algo_kwargs
 
 
 class Compressor():
@@ -105,7 +106,11 @@ class Compressor():
                 - see ``sktensor.tucker.hooi()`` arguments, if `decomposition` is 'tucker2';
                 - see ``np.linalg.svd()`` arguments, if `decomposition` is 'svd'.
         """
-        self.all_algo_kwargs = all_algo_kwargs
+        if all_algo_kwargs is not None:
+            self.all_algo_kwargs = all_algo_kwargs
+        else:
+            self.all_algo_kwargs = get_all_algo_kwargs()
+            
         
         self.ltypes = model_stats.ltypes
         self.lnames = [lname for lname in self.ltypes.keys() if
