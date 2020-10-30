@@ -4,6 +4,8 @@ import copy
 
 from musco.pytorch.compressor.utils import get_compressed_model
 from musco.pytorch.compressor.layers.utils import get_all_algo_kwargs
+from musco.pytorch.compressor.config_gen import generate_model_compr_kwargs, generate_layer_compr_kwargs
+
 
 
 class Compressor():
@@ -152,12 +154,10 @@ class Compressor():
         
         # compressor.compressed_model is our final compressed and standardized model.
         
-
     See Also
     --------
-    CompressorVBMF
-    CompressorPR
-    CompressorManual
+    musco.pytorch.compressor.rank_estimation.estimator.estimate_vbmf_ranks
+    musco.pytorch.compressor.rank_estimation.estimator.estimate_rank_for_compression_rate
     """
 
     def __init__(self,
@@ -166,7 +166,8 @@ class Compressor():
                  model_compr_kwargs = None,
                  ft_every=1,
                  nglobal_compress_iters=None,
-                 all_algo_kwargs=None):
+                 all_algo_kwargs=None,
+                 config_type = 'none'):
         """
 
         Parameters
@@ -186,10 +187,11 @@ class Compressor():
                 - see ``tensorly.decomposition.parafac()`` arguments, if `decomposition` takes values from {'cp3', 'cp4'};
                 - see ``sktensor.tucker.hooi()`` arguments, if `decomposition` is 'tucker2';
                 - see ``np.linalg.svd()`` arguments, if `decomposition` is 'svd'.
+        config_type : {'none', 'vbmf', 'param_reduction'}
         """
         self.model_stats = model_stats
         
-        self.init_model_compr_kwargs(model_stats, model_compr_kwargs)
+        self.init_model_compr_kwargs(model_stats, model_compr_kwargs, config_type = config_type)
 
         self.init_all_algo_kwargs(all_algo_kwargs)
             
@@ -264,7 +266,7 @@ class Compressor():
         if all_algo_kwargs is not None:
             self.all_algo_kwargs.update(all_algo_kwargs)            
                 
-    def _init_layer_compr_kwargs(self, linfo):
+    def _init_layer_compr_kwargs(self, linfo, config_type = 'none'):
         """Defines how to compress a model's layer.
 
         Parameters
@@ -282,15 +284,18 @@ class Compressor():
                 - 'manual_rank'
                 - 'param_reduction_rate'
                 - 'vbmf_weakenen_factor'
+                - 'curr_compr_iter'
                 
         See Also
         --------
         model_compr_kwargs
+        musco.pytorch.compressor.config_gen.generate_model_compr_kwargs
         """
-        pass
+        
+        return generate_layer_compr_kwargs(linfo, config_type)
     
 
-    def init_model_compr_kwargs(self, model_stats, model_compr_kwargs):
+    def init_model_compr_kwargs(self, model_stats, model_compr_kwargs, config_type = 'none'):
         """Defines how to compress each layer in the model.
         
         Performs default initialization for the model compression schedule, then updates it using a passed argument `model_compr_kwargs`.
@@ -299,11 +304,8 @@ class Compressor():
         ----------
         model_stats : FlopCo
             Model statistics (FLOPs, params, input/output layer shapes, layers' types) collected using FlopCo package.
-
-        Returns
-        -------
-        deafaultdict(defaultdict)
-            A dictionary ``{lname : layer_compr_kwargs}`` that maps each layer in the initial model to a dictionary of parameters, which define a compression schedule for the layer.
+        model_compr_kwargs : deafaultdict(defaultdict)
+            A dictionary ``{lname : layer_compr_kwargs}`` that maps a layer in the initial model to a dictionary of parameters, which define a compression schedule for the layer.
             
         See Also
         --------
@@ -312,242 +314,7 @@ class Compressor():
         self.model_compr_kwargs = defaultdict(defaultdict)
 
         for lname, linfo in model_stats.ltypes.items():
-            self.model_compr_kwargs[lname] = self._init_layer_compr_kwargs(linfo)
+            self.model_compr_kwargs[lname] = self._init_layer_compr_kwargs(linfo, config_type)
             
         if model_compr_kwargs is not None:
             self.model_compr_kwargs.update(model_compr_kwargs)
-
-            
-class CompressorVBMF(Compressor):
-    """Multi-stage compression of a neural network using low-rank approximations with automated rank selection based on EVBMF.
-    
-        - nn.Conv2d layers with nxn (n > 1) spacial kernels are compressed using **Tucker2 low-rank approximation** with **EVBMF rank selection**.
-        - nn.Conv2d layers with 1x1 spacial kernels and nn.Linear layers are compressed using **SVD low-rank approximation** with **EVBMF rank selection**.
-        - We compress the model by alternating compression and fine-tuning steps. 
-        
-    **By default all nn.Conv2d and nn.Linear layers are compressed. Default `vbmf_wekenen_factor` is 0.8**. 
-        
-    Examples
-    --------
-    Let us perform multi-stage compression by compressing all nn.Conv2d and nn.Linear layers.
-        
-    Assume that each layer is compressed twice (`nglobal_compress_iters` = 2) and that at each compression step 5 layers are compressed (`ft_every` = 5). The fine-tuning step restores an accuracy after the compression step. Untill each layer is compressed twice, we compress 5 layers, fine-tine, compress another 5 layers, fine-tune, etc.
-
-    ::
-    
-        from flopco import FlopCo
-        from musco.pytorch import CompressorVBMF
-        import copy
-
-        device = 'cuda'
-        # Load the model
-        model = ...
-        model.to(device)
-
-        # Collect initial model statistics
-        model_stats = FlopCo(model,
-                             img_size = (1, 3, 128, 128),
-                             device = device)
-
-
-        # Initialize a compressor
-        compressor = CompressorVBMF(copy.deepcopy(model),
-                                    model_stats,
-                                    ft_every=5,
-                                    nglobal_compress_iters=2,
-                                   )
-
-        # Alernate compression and fine-tuning steps, while compression is not done
-        # (i.e., until each compressing layer is compressed `nglobal_compress_iters` times)
-        while not compressor.done:
-            # Compress layers
-            compressor.compression_step()
-
-            # Fine-tune compressor.compressed_model
-
-        # Replace custom layers with standard nn.Module layers.
-        standardize_model(compressor.compressed_model) 
-    
-        # compressor.compressed_model is our final compressed and standardized model.
-    
-    
-    See Also
-    --------
-    musco.pytorch.compressor.rank_estimation.estimator.estimate_vbmf_ranks
-    CompressorPR
-    CompressorManual
-    
-    """
-    def __init__(self,
-                 model,
-                 model_stats,
-                 model_compr_kwargs=None,
-                 ft_every=None,
-                 nglobal_compress_iters=1,
-                 all_algo_kwargs=None,
-                 ):
-        
-        
-        super(CompressorVBMF, self).__init__(
-             model,
-             model_stats,
-             model_compr_kwargs = model_compr_kwargs,
-             ft_every=ft_every,
-             nglobal_compress_iters=nglobal_compress_iters,
-             all_algo_kwargs=all_algo_kwargs)
-        
-        
-    def _init_layer_compr_kwargs(self, linfo):
-        if linfo['type'] == nn.Conv2d:
-            if linfo['groups'] != 1:
-                return None
-
-            if linfo['kernel_size'] != (1, 1):
-                decomposition = 'tucker2'
-            else:
-                decomposition = 'svd'
-
-        elif linfo['type'] == nn.Linear:
-            decomposition = 'svd'
-
-        layer_compr_kwargs = defaultdict(None, {'decomposition': decomposition,
-                                                'rank_selection': 'vbmf',
-                                                'manual_rank': None,
-                                                'param_reduction_rate': None,
-                                                'vbmf_weakenen_factor': 0.8,
-                                                'curr_compr_iter': 0})
-        return layer_compr_kwargs
-
-        
-
-class CompressorPR(Compressor):
-    """Multi-stage compression of a neural network using low-rank approximations with automated rank selection based on layers' parameter reduction rate.
-    
-        - nn.Conv2d layers with nxn (n > 1) spacial kernels are compressed using CP3/CP4/Tucker2 low-rank approximation with **rank selection based on layers' parameter reduction rate**.
-        - nn.Conv2d layers with 1x1 spacial kernels and nn.Linear layers are compressed using **SVD low-rank approximation** with **rank selection based on layers' parameter reduction rate**.
-        - We compress the model by alternating compression and fine-tuning steps. 
-        
-    **By default all nn.Conv2d and nn.Linear layers are compressed. Default `param_reduction_rate` is 2. Default `decomposition` for nn.Conv2d layers with nxn (n > 1) spacial kernels is Tucker2**.
-    
-        
-    Examples
-    --------
-    Let us perform multi-stage compression by compressing all nn.Conv2d and nn.Linear layers.
-        
-    Assume that each layer is compressed twice (`nglobal_compress_iters` = 2) and that at each compression step 5 layers are compressed (`ft_every` = 5). The fine-tuning step restores an accuracy after the compression step. Untill each layer is compressed twice, we compress 5 layers, fine-tine, compress another 5 layers, fine-tune, etc.
-
-    ::
-    
-        from flopco import FlopCo
-        from musco.pytorch import CompressorPR
-        import copy
-
-        device = 'cuda'
-        # Load the model
-        model = ...
-        model.to(device)
-
-        # Collect initial model statistics
-        model_stats = FlopCo(model,
-                             img_size = (1, 3, 128, 128),
-                             device = device)
-
-
-        # Initialize a compressor
-        compressor = CompressorPR(copy.deepcopy(model),
-                                  model_stats,
-                                  ft_every=5,
-                                  nglobal_compress_iters=2,
-                                 )
-
-        # Alernate compression and fine-tuning steps, while compression is not done
-        # (i.e., until each compressing layer is compressed `nglobal_compress_iters` times)
-        while not compressor.done:
-            # Compress layers
-            compressor.compression_step()
-
-            # Fine-tune compressor.compressed_model
-
-        # Replace custom layers with standard nn.Module layers.
-        standardize_model(compressor.compressed_model) 
-    
-        # compressor.compressed_model is our final compressed and standardized model.
-
-
-    See Also
-    --------
-    musco.pytorch.compressor.rank_estimation.estimator.estimate_rank_for_compression_rate
-    CompressorVBMF
-    CompressorManual
-    """
-    def __init__(self,
-                 model,
-                 model_stats,
-                 model_compr_kwargs=None,
-                 ft_every=None,
-                 nglobal_compress_iters=1,
-                 all_algo_kwargs=None):
-        
-        super(CompressorPR, self).__init__(
-             model,
-             model_stats,
-             model_compr_kwargs = model_compr_kwargs,
-             ft_every=ft_every,
-             nglobal_compress_iters=nglobal_compress_iters,
-             all_algo_kwargs=all_algo_kwargs,
-             )
-        
-    
-    def _init_layer_compr_kwargs(self, linfo):
-        if linfo['type'] == nn.Conv2d:
-            if linfo['groups'] != 1:
-                return None
-
-            if linfo['kernel_size'] != (1, 1):
-                decomposition = 'tucker2'
-            else:
-                decomposition = 'svd'
-
-        elif linfo['type'] == nn.Linear:
-            decomposition = 'svd'
-
-        layer_compr_kwargs = defaultdict(None, {'decomposition': decomposition,
-                                                'rank_selection': 'param_reduction',
-                                                'manual_rank': None,
-                                                'param_reduction_rate': 1.5,
-                                                'vbmf_weakenen_factor': None,
-                                                'curr_compr_iter': 0})
-        return layer_compr_kwargs
-
-        
-        
-class CompressorManual(Compressor):
-    """Compression of a neural network using low-rank approximations with manually defined ranks.
-
-        - nn.Conv2d layers with nxn (n > 1) spacial kernels are compressed using Tucker2 low-rank approximation with a **manually defined rank**. (You can use CP3 or CP4 instead of Tucker2.)
-        - nn.Conv2d layers with 1x1 spacial kernels and nn.Linear layers are compressed using **SVD low-rank approximation** with a **manually defined rank**.
-        - We compress the model by alternating compression and fine-tuning steps. 
-        - Assume that each layer is compressed twice (`nglobal_compress_iters` = 2) and that at each compression step 5 layers are compressed (`ft_every` = 5). The fine-tuning step restores an accuracy after the compression step. Untill each layer is compressed twice, we compress 5 layers, fine-tine, compress another 5 layers, fine-tune, etc.
-
-    **By default none of the layers is compressed**.
-        
-    See Also
-    --------
-    CompressorVBMF
-    CompressorPR
-    """
-    def __init__(self,
-                 model,
-                 model_stats,
-                 model_compr_kwargs=None,
-                 ft_every=None,
-                 nglobal_compress_iters=1,
-                 all_algo_kwargs=None): 
-
-        super(CompressorManual, self).__init__(
-                model,
-                model_stats,
-                model_compr_kwargs=model_compr_kwargs,
-                ft_every=ft_every,
-                nglobal_compress_iters=nglobal_compress_iters,
-                all_algo_kwargs=all_algo_kwargs)

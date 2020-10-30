@@ -25,6 +25,14 @@ musco.pytorch.compressor.compressor module
    :undoc-members:
    :show-inheritance:
 
+musco.pytorch.compressor.config\_gen module
+-------------------------------------------
+
+.. automodule:: musco.pytorch.compressor.config_gen
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 musco.pytorch.compressor.utils module
 -------------------------------------
 
