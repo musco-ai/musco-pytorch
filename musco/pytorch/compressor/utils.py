@@ -34,7 +34,8 @@ def get_compressed_model(model,
         A dictionary ``{decomposition : algo_kwargs}``, where `decomposition` states for the approximation type and `algo_kwargs` is a dictionary containing parameters for the approximation algorithm. For the available list of algorithm  parameters,
             - see ``tensorly.decomposition.parafac()`` arguments, if `decomposition` takes values from {'cp3', 'cp4'};
             - see ``sktensor.tucker.hooi()`` arguments, if `decomposition` is 'tucker2';
-            - see ``np.linalg.svd()`` arguments, if `decomposition` is 'svd'.
+            - see ``np.linalg.svd()`` arguments, if `decomposition` is 'svd';
+            - see ``tensorly.decomposition.quantized_parafac()`` arguments, if `decomposition` takes values from {'qcp3', 'qcp4'};
             
     model_compr_kwargs : collections.defaultdict(dict)
         A dictionary ``{lname : layer_compr_kwargs}`` that maps each layer in the initial model to a dictionary of parameters, which define a compression schedule for the layer.
@@ -80,10 +81,10 @@ def get_compressed_model(model,
             if decomposition == 'tucker2':
                 decomposed_layer = Tucker2DecomposedLayer(layer, subm_names[-1], algo_kwargs, **compr_kwargs)
 
-            elif decomposition == 'cp3':
+            elif decomposition in ['cp3', 'qcp3']:
                 decomposed_layer = CP3DecomposedLayer(layer, subm_names[-1], algo_kwargs, **compr_kwargs)
                 
-            elif decomposition == 'cp4':
+            elif decomposition in ['cp4', 'qcp4']:
                 decomposed_layer = CP4DecomposedLayer(layer, subm_names[-1], algo_kwargs, **compr_kwargs)
                 
             elif decomposition == 'svd':

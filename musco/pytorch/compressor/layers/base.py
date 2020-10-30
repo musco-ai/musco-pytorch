@@ -51,6 +51,7 @@ class DecomposedLayer(object, metaclass=abc.ABCMeta):
                 - see ``tensorly.decomposition.parafac()`` arguments, if `decomposition` takes values from {'cp3', 'cp4'};
                 - see ``sktensor.tucker.hooi()`` arguments, if `decomposition` is 'tucker2';
                 - see ``np.linalg.svd()`` arguments, if `decomposition` is 'svd'.
+                - see ``tensorly.decomposition.quantized_parafac()`` arguments, if `decomposition` takes values from {'qcp3', 'qcp4'};
         rank_selection : {'manual', 'param_reduction', 'vbmf'}
            A method to estimate the rank of the tensor decomposition.
         manual_rank : list of (int or iterable) or None

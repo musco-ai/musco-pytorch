@@ -176,9 +176,9 @@ def count_parameters(tensor_shape,
     >>> params_count = rank*(fout + fin)
     """
     
-    if tensor_format == 'cp4':
+    if tensor_format in ['cp4', 'qcp4']:
         params_count = _count_cp4_parameters(tensor_shape, rank=rank)
-    elif tensor_format == 'cp3':
+    elif tensor_format in ['cp3', 'qcp3']:
         params_count = _count_cp3_parameters(tensor_shape, rank=rank)
     elif tensor_format == 'tucker2':
         params_count = _count_tucker2_parameters(tensor_shape, rank=rank)    
@@ -250,7 +250,7 @@ def estimate_rank_for_compression_rate(tensor_shape,
     else:
         initial_count = np.prod(tensor_shape)
         
-    if tensor_format in ['cp4', 'cp3', 'svd']:
+    if tensor_format in ['cp4', 'cp3', 'svd', 'qcp3', 'qcp4']:
         max_rank = (initial_count /
                     count_parameters(tensor_shape, rank = 1, tensor_format = tensor_format) / 
                     rate)

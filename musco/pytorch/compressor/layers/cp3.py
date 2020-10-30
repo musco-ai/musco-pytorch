@@ -26,7 +26,7 @@ class CP3DecomposedLayer(nn.Module, DecomposedLayer):
         nn.Module.__init__(self)
         DecomposedLayer.__init__(self, layer, layer_name, algo_kwargs=algo_kwargs)
         
-        assert compr_kwargs['decomposition'] == 'cp3'
+        assert compr_kwargs['decomposition'] in ['cp3', 'qcp3']
         self.min_rank = 2
         
         self.cin = None
@@ -122,6 +122,12 @@ class CP3DecomposedLayer(nn.Module, DecomposedLayer):
     
     
     def compute_new_weights(self, weight, bias, algo_kwargs={}):
+        if 'qscheme' in  algo_kwargs.keys():
+            from  tensorly.decomposition import quantized_parafac as parafac
+            print('Quantized')
+        else:
+            from  tensorly.decomposition import parafac
+
         if isinstance(self.layer, nn.Sequential):
             lmbda, (f_cout, f_cin, f_z) = parafac(kruskal_to_tensor((None, weight)),
                                               self.rank,
