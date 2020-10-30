@@ -23,16 +23,17 @@ pip install musco-pytorch
 ```python
 from torchvision.models import resnet50
 from flopco import FlopCo
-from musco.pytorch import CompressorVBMF, CompressorPR, CompressorManual, Compressor
+from musco.pytorch import Compressor
 from musco.pytorch.compressor.utils import standardize_model
 
 model = resnet50(pretrained = True)
 model_stats = FlopCo(model, device = device)
 
-compressor = CompressorVBMF(model,
-                            model_stats,
-                            ft_every=5, 
-                            nglobal_compress_iters=2)
+compressor = Compressor(model,
+                        model_stats,
+                        ft_every=5, 
+                        nglobal_compress_iters=2б
+                        config_type = 'vbmf')
 
 # Compressor decomposes 5 layers on each iteration.
 # Compressed model is saved at compressor.compressed_model.
