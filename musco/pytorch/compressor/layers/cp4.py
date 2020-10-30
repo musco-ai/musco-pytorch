@@ -24,12 +24,12 @@ class CP4DecomposedLayer(nn.Module, DecomposedLayer):
                  layer,
                  layer_name,
                  algo_kwargs={},
-                 **rank_kwargs):
+                 **compr_kwargs):
         
         nn.Module.__init__(self)
         DecomposedLayer.__init__(self, layer, layer_name, algo_kwargs=algo_kwargs)
         
-        self.decomposition = 'cp4'
+        assert compr_kwargs['decomposition'] == 'cp4'
         self.min_rank = 2
         
         self.cin = None
@@ -44,7 +44,7 @@ class CP4DecomposedLayer(nn.Module, DecomposedLayer):
         self.init_device()
                 
         # Estimate rank for tensor approximation and build new layers
-        self.estimate_rank(**rank_kwargs)
+        self.estimate_rank(**compr_kwargs)
         self.build_new_layers()
         
         # Compute weights for new layers, initialize new layers
@@ -74,10 +74,10 @@ class CP4DecomposedLayer(nn.Module, DecomposedLayer):
             self.stride = self.layer.stride
             
             
-    def estimate_rank(self, **rank_kwargs):
-        rank_kwargs = Namespace(**rank_kwargs)
+    def estimate_rank(self, **compr_kwargs):
+        compr_kwargs = Namespace(**compr_kwargs)
 
-        if rank_kwargs.rank_selection == 'param_reduction':
+        if compr_kwargs.rank_selection == 'param_reduction':
             if  isinstance(self.layer, nn.Sequential):
                 prev_rank = self.layer[0].out_channels
             else:
@@ -85,12 +85,13 @@ class CP4DecomposedLayer(nn.Module, DecomposedLayer):
 
             tensor_shape = (self.cout, self.cin, *self.kernel_size)
             self.rank = estimate_rank_for_compression_rate(tensor_shape,
-                                                           rate = rank_kwargs.param_reduction_rate,
-                                                           tensor_format = self.decomposition,
+                                                           rate = compr_kwargs.param_reduction_rate,
+                                                           tensor_format = compr_kwargs.decomposition,
                                                            prev_rank = prev_rank,
                                                            min_rank = self.min_rank)
-        elif rank_kwargs.rank_selection == 'manual':
-            self.rank = rank_kwargs.manual_rank    
+        elif compr_kwargs.rank_selection == 'manual':
+            i = compr_kwargs.curr_compr_iter
+            self.rank =  compr_kwargs.manual_rank[i]    
         
 
     def extract_weights(self):

@@ -1,1 +1,1 @@
-from musco.pytorch.compressor.compressor import CompressorVBMF, CompressorPR, CompressorManual
+from musco.pytorch.compressor.compressor import Compressor, CompressorVBMF, CompressorPR, CompressorManual

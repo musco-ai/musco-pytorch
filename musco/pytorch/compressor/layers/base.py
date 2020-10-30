@@ -28,7 +28,7 @@ class DecomposedLayer(object, metaclass=abc.ABCMeta):
                  algo_kwargs={},
                  rank_selection=None,
                  manual_rank=None,
-                 vbmf_weaken_factor=None,
+                 vbmf_weakenen_factor=None,
                  param_reduction_rate=None):
         """Initializes a decomposed layer.
         
@@ -53,15 +53,15 @@ class DecomposedLayer(object, metaclass=abc.ABCMeta):
                 - see ``np.linalg.svd()`` arguments, if `decomposition` is 'svd'.
         rank_selection : {'manual', 'param_reduction', 'vbmf'}
            A method to estimate the rank of the tensor decomposition.
-        manual_rank : int or iterable or None
-                - if `rank_selection` != 'manual', then `manual_rank` is -1.
-                - Else, `manual_rank` equals *(int)* for CP3/CP4/SVD and *(iterable)* for Tucker2.
+        manual_rank : list of (int or iterable) or None
+                - if `rank_selection` != 'manual', then `manual_rank` is None.
+                - Else, `manual_rank` equals *(list of int* for CP3/CP4/SVD and *(list of iterable)* for Tucker2.
         param_reduction_rate : float or None
                 - If `rank_selection` != 'param_reduction', then `param_reduction_rate` is None.
                 - Else, `param_reduction` is a reduction factor by which the number of layer's parameters decrease after the compression step.
-        vbmf_weaken_factor : float or None
-                - If `rank_selection` != 'vbmf', then `vbmf_weaken_factor` is None.
-                - Else, `vbmf_weaken_factor` is a weakenen factor used to increase tensor rank found via EVMBF.
+        vbmf_weakenen_factor : float or None
+                - If `rank_selection` != 'vbmf', then `vbmf_weakenen_factor` is None.
+                - Else, `vbmf_weakenen_factor` is a weakenen factor used to increase tensor rank found via EVMBF.
         """
         
         self.layer_name = layer_name
@@ -105,9 +105,9 @@ class DecomposedLayer(object, metaclass=abc.ABCMeta):
     def estimate_rank(self,
                       weight=None,
                       rank_selection=None,
-                      manual_rank=-1,
+                      manual_rank=None,
                       param_reduction_rate=None,
-                      vbmf_weaken_factor=None):
+                      vbmf_weakenen_factor=None):
         """Estimates the rank of decomposition, which is used to approximate the layer's weight.  
         
         Sets a value for the `rank` attribute.
@@ -118,15 +118,15 @@ class DecomposedLayer(object, metaclass=abc.ABCMeta):
             A weight, which is approximated.
         rank_selection : {'manual', 'param_reduction', 'vbmf'}
            A method to estimate the rank of the tensor decomposition.
-        manual_rank : int or iterable or None
-                - if `rank_selection` != 'manual', then `manual_rank` is -1.
-                - Else, `manual_rank` equals *(int)* for CP3/CP4/SVD and *(iterable)* for Tucker2.
+        manual_rank : list of (int or iterable) or None
+                - if `rank_selection` != 'manual', then `manual_rank` is None.
+                - Else, `manual_rank` equals *(list of int)* for CP3/CP4/SVD and *(list of iterable)* for Tucker2.
         param_reduction_rate : float or None
                 - If `rank_selection` != 'param_reduction', then `param_reduction_rate` is None.
                 - Else, `param_reduction` is a reduction factor by which the number of layer's parameters decrease after the compression step.
-        vbmf_weaken_factor : float or None
-                - If `rank_selection` != 'vbmf', then `vbmf_weaken_factor` is None.
-                - Else, `vbmf_weaken_factor` is a weakenen factor used to increase tensor rank found via EVMBF.
+        vbmf_weakenen_factor : float or None
+                - If `rank_selection` != 'vbmf', then `vbmf_weakenen_factor` is None.
+                - Else, `vbmf_weakenen_factor` is a weakenen factor used to increase tensor rank found via EVMBF.
         """
         pass
     

@@ -15,12 +15,12 @@ class SVDDecomposedLayer(nn.Module, DecomposedLayer):
                  layer,
                  layer_name,
                  algo_kwargs={},
-                 **rank_kwargs):
+                 **compr_kwargs):
         nn.Module.__init__(self)
         DecomposedLayer.__init__(self, layer, layer_name, algo_kwargs=algo_kwargs)
         
-        self.decomposition = 'svd'
-        self.min_rank = 8
+        assert compr_kwargs['decomposition'] == 'svd'
+        self.min_rank = 2
         
         self.in_features = None
         self.out_features = None
@@ -33,7 +33,7 @@ class SVDDecomposedLayer(nn.Module, DecomposedLayer):
         weight, bias = self.extract_weights()
         
         # Estimate rank for tensor approximation and build new layers
-        self.estimate_rank(weight = weight, **rank_kwargs)
+        self.estimate_rank(weight = weight, **compr_kwargs)
         self.build_new_layers()
         
         # Compute weights for new layers, initialize new layers
@@ -73,26 +73,27 @@ class SVDDecomposedLayer(nn.Module, DecomposedLayer):
         return weight, bias
     
     
-    def estimate_rank(self, weight = None, **rank_kwargs):
-        rank_kwargs = Namespace(**rank_kwargs)
+    def estimate_rank(self, weight = None, **compr_kwargs):
+        compr_kwargs = Namespace(**compr_kwargs)
         
-        if rank_kwargs.rank_selection == 'vbmf':
+        if compr_kwargs.rank_selection == 'vbmf':
             self.rank = estimate_vbmf_ranks(weight,
-                                            rank_kwargs.vbmf_weaken_factor,
+                                            compr_kwargs.vbmf_weakenen_factor,
                                             min_rank = self.min_rank)
         
-        elif rank_kwargs.rank_selection == 'manual':
-            self.rank = rank_kwargs.manual_rank
+        elif compr_kwargs.rank_selection == 'manual':
+            i = compr_kwargs.curr_compr_iter
+            self.rank = compr_kwargs.manual_rank[i]
             
-        elif rank_kwargs.rank_selection == 'param_reduction':
+        elif compr_kwargs.rank_selection == 'param_reduction':
             if  isinstance(self.layer, nn.Sequential):
                 prev_rank = self.layer[0].out_features
             else:
                 prev_rank = None
 
             self.rank = estimate_rank_for_compression_rate((self.out_features, self.in_features),
-                                                           rate = rank_kwargs.param_reduction_rate,
-                                                           tensor_format = self.decomposition,
+                                                           rate = compr_kwargs.param_reduction_rate,
+                                                           tensor_format = compr_kwargs.decomposition,
                                                            prev_rank = prev_rank,
                                                            min_rank = self.min_rank)
     
@@ -144,13 +145,13 @@ class SVDDecomposedConvLayer(nn.Module, DecomposedLayer):
                  layer,
                  layer_name,
                  algo_kwargs={},
-                 **rank_kwargs):
+                 **compr_kwargs):
         
         nn.Module.__init__(self)
         DecomposedLayer.__init__(self, layer, layer_name, algo_kwargs=algo_kwargs)
         
-        self.decomposition = 'svd'
-        self.min_rank = 8
+        assert compr_kwargs['decomposition'] == 'svd'
+        self.min_rank = 2
         
         self.cin = None
         self.cout = None
@@ -166,7 +167,7 @@ class SVDDecomposedConvLayer(nn.Module, DecomposedLayer):
         weight, bias = self.extract_weights()
         
         # Estimate rank for tensor approximation and build new layers
-        self.estimate_rank(weight = weight, **rank_kwargs)
+        self.estimate_rank(weight = weight, **compr_kwargs)
         self.build_new_layers()
         
         # Compute weights for new layers, initialize new layers
@@ -212,26 +213,27 @@ class SVDDecomposedConvLayer(nn.Module, DecomposedLayer):
         return weight[:,:,0,0], bias
  
 
-    def estimate_rank(self, weight = None, **rank_kwargs):
-        rank_kwargs = Namespace(**rank_kwargs)
+    def estimate_rank(self, weight = None, **compr_kwargs):
+        compr_kwargs = Namespace(**compr_kwargs)
         
-        if rank_kwargs.rank_selection == 'vbmf':
+        if compr_kwargs.rank_selection == 'vbmf':
             self.rank = estimate_vbmf_ranks(weight,
-                                            rank_kwargs.vbmf_weaken_factor,
+                                            compr_kwargs.vbmf_weakenen_factor,
                                             min_rank = self.min_rank)
             
-        elif rank_kwargs.rank_selection == 'manual':
-            self.rank = rank_kwargs.manual_rank
+        elif compr_kwargs.rank_selection == 'manual':
+            i = compr_kwargs.curr_compr_iter
+            self.rank = compr_kwargs.manual_rank[i]
             
-        elif rank_kwargs.rank_selection == 'param_reduction':
+        elif compr_kwargs.rank_selection == 'param_reduction':
             if  isinstance(self.layer, nn.Sequential):
                 prev_rank = self.layer[0].out_channels
             else:
                 prev_rank = None
 
             self.rank = estimate_rank_for_compression_rate((self.out_channels, self.in_channels),
-                                                           rate = rank_kwargs.param_reduction_rate,
-                                                           tensor_format = self.decomposition,
+                                                           rate = compr_kwargs.param_reduction_rate,
+                                                           tensor_format = compr_kwargs.decomposition,
                                                            prev_rank = prev_rank,
                                                            min_rank = self.min_rank)
             
