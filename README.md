@@ -23,7 +23,8 @@ pip install musco-pytorch
 ```python
 from torchvision.models import resnet50
 from flopco import FlopCo
-from musco.pytorch import CompressorVBMF, CompressorPR, CompressorManual
+from musco.pytorch import CompressorVBMF, CompressorPR, CompressorManual, Compressor
+from musco.pytorch.compressor.utils import standardize_model
 
 model = resnet50(pretrained = True)
 model_stats = FlopCo(model, device = device)
@@ -33,56 +34,159 @@ compressor = CompressorVBMF(model,
                             ft_every=5, 
                             nglobal_compress_iters=2)
 
+# Compressor decomposes 5 layers on each iteration.
+# Compressed model is saved at compressor.compressed_model.
+# You have to fine-tune model after each iteration to restore accuracy.
 while not compressor.done:
     # Compress layers
     compressor.compression_step()
     
     # Fine-tune compressor.compressed_model
 
+# Convert custom layers to PyTorch layers
+standardize_model(compressor.compressed_model)
+
 compressed_model = compressor.compressed_model
-
-# Compressor decomposes 5 layers on each iteration.
-# Compressed model is saved at compressor.compressed_model.
-# You have to fine-tune model after each iteration to restore accuracy.
-
 ```
 Please, find more examples in musco/pytorch/examples folder
 
-## Compress the model
+## Model compression
+To perform multi-stage model compression via low-rank approximations, you need to permorm the following steps.
 
-You can compress the model using diffrenet strategies depending on rank selection method.
+#### Load a pre-trained model
+```
+model = ...
+```
 
-- Using any of the below listed compressors, you can optionally specify:
-     - which layers will NOT be compressed (```ranks = {lname : None for lname in noncompressing_lnames}```)
-     - how many layers to compress before next model fine-tuning (```ft_every = 3```, i.e. compression schedule is as follows: compress 3 layers, fine-tine, compress another 3 layers, fine-tune, ... )
-     - how many times to compress each layer (```nglobal_iters = 2```, by default 1)
-        
+#### Compute model statistics
+```
+from flopco import FlopCo
 
-- **CompressorVBMF**:  ranks are determined  by a global analytic solution of variational Bayesian matrix factorization (EVBMF)
-    - Tucker2 decomposition is used for nn.Conv2d layers with kernels (n, n), n > 1
-    - SVD is used for nn.Linear and nn.Conv2d with kernels (1, 1)
-    - You can optionally specify:
-        - weakenen factor for VBMF rank(```vbmf_weakenen_factors = {lname : factor for lname in lnames}```)
+model_stats = FlopCo(model, img_size = (1, 3, 128, 128), device = device)
+```
+`model_stats` contains model statistics (FLOPs, params, input/output layer shapes, layers' types) collected using [FlopCo](https://github.com/juliagusak/flopco-pytorch) package.
+
+#### Define a model compression schedule
+
+To compress the model you need to define a compession schedule for each layer. You can do that by creating `model_compr_kwargs` dictionary.
+
+`model_compr_kwargs` is a dictionary ``{lname : layer_compr_kwargs}`` that maps each layer in the initial model to a dictionary of parameters, which define a compression schedule for the layer.
+
+   - If the layer is not compressing, `layer_compr_kwargs` is None.
+   - Else, `layer_compr_kwargs` is a dictionary with keyword arguments defining a layer compression schedule. 
+
+```
+layer_compr_kwargs = {
+   decomposition : str,
+   rank_selection : str,
+   manual_rank : list of (int or iterable) or None,
+   parameter_reduction_rate : int or None,
+   vbmf_weakenen_factor : float or None,
+   curr_compr_iter : int,
+}
+ ```
+   where
+
+   - `decomposition` *(str)* is a type of tensor method applied to approximate nn.Conv2d or nn.Linear kernel at the compression step.
+
+     - For nn.Conv2d with 1x1 spacial size and nn.Linear layers `decomposition` = 'svd'.
+     - For nn.Conv2d with nxn (n>1) spacial size `decomposition` takes value from {'cp3', 'cp4', 'tucker2'}, default is 'tucker2'.
+
+   - `rank_selection` *(str)* is a method to estimate rank of tensor decompositions, which is applied to nn.Conv2d and nn.Linear layers. `rank_selection` takes a value from {'vbmf', 'param_reduction', 'manual'}.
+
+   - `manual_rank` *list of (int or iterable) or None*.
+
+     - `manual_rank` is None if the kernel of the corresponding layer is approximated using automatically defined rank value (i.e. `rank_selection` != 'manual').
+     - `manual_rank` is *list of (int or iterable)* if the kernel of the corresponding layer is approximated using a manually defined rank value. When the layer is compressed for the i-th time, i-th element in the list defines the rank of decomposition.
+
+  - `param_reduction_rate` *(int or None)* is a reduction factor by which the number of layer's parameters decrease after the compression step. 
+
+    - if `rank_selection` != 'param_reduction', then `param_reduction_rate` is None.
+    - if `rank_selection` == 'param_reduction', then  default is 2.
+
+  - `vbmf_weakenen_factor` *(float or None)* is a weakenen factor used to increase tensor rank found via EVMBF.
+
+    - if `rank_selection` != 'vbmf', then `vbmf_weakenen_factor` is None.
+    - if `rank_selection` == 'vbmf', then `vbmf_weakenen_factor` takes a value from ``[0, 1]``, default is 0.8.
+
+  - `curr_compr_iter` *(int)* is a counter for compression iterations for the given layer.
+  
+For example, you can have the following compression schedule for ResNet18
+```
+model_compr_kwargs = {
+    'layer3.1.conv2': {'decomposition': 'tucker2',
+                       'rank_selection': 'manual',
+                       'manual_rank': [(32, 32), (16, 16)],
+                       'curr_compr_iter': 0
+                      },
+    'layer2.1.conv2': {'decomposition': 'tucker2',
+                       'rank_selection': 'vbmf',
+                       'vbmf_weakenen_factor': 0.9,
+                       'curr_compr_iter': 0
+                      },
+    'layer1.1.conv2': {'decomposition': 'cp4',
+                      'rank_selection': 'param_reduction',
+                      'param_reduction_rate': 4,
+                      'curr_compr_iter': 0
+                      },
+}
+```
+  
+#### Create a *Compressor*
+Assume that each layer is compressed twice (`nglobal_compress_iters` = 2) and that at each compression step 3 layers are compressed (`ft_every` = 3). Then the compressor is initialized as follows.
+
+```
+from musco.pytorch import Compressor
+
+compressor = Compressor(copy.deepcopy(model),
+                        model_stats,
+                        ft_every=3,
+                        nglobal_compress_iters=2,
+                        model_compr_kwargs = model_compr_kwargs,
+                       )
+```
+
+#### Compress
+Alernate compression and fine-tuning steps, while compression is not done (i.e., until each compressing layer is compressed `nglobal_compress_iters` times).
+In our example, untill each layer is compressed twice, we compress 3 layers, fine-tine, compress another 3 layers, fine-tune, etc.
+
+```
+while not compressor.done:
+  # Compress layers
+  compressor.compression_step()
+
+  # Fine-tune compressor.compressed_model
+```
+
+#### Convert custom layers to PyTorch standard layers
+Post-process the compressed model to get rid of custom layers used during the compression.
+```
+from musco.pytorch.compressor.utils import standardize_model
+
+standardize_model(compressor.compressed_model)
+```
+Thus, `compressor.compressed_model` is a compressed model that is build from PyTorch standard layers.
 
 
+#### Special types of *Compressor*
+To compress all nn.Conv2d and nn.Linear layers using default compression settings, you can use the following children classes of *Compressor*
+```
+from musco.pytorch import CompressorVBMF, CompressorPR
 
-- **CompressorPR**: ranks correspond to chosen fixed parameter reduction rate (specified for each layer, default: 2x for all layers)
+```
 
-    - Tucker2/CP3/CP4 decomposition is used for nn.Conv2d layers with kernels (n, n), n > 1
-    - SVD is used for nn.Linear and nn.Conv2d with kernels (1, 1)
-    - You can optionally specify:
-        - which decomposition to use for nn.Conv2d layers with kernels (n, n), n > 1 (```conv2d_nn_decomposition = cp3```)
-        - parameter reduction rate (```param_reduction_rates``` argument), can be different for each layer
+- **CompressorVBMF**: multi-stage compression of a neural network using low-rank approximations with automated rank selection based on EVBMF.
+  - nn.Conv2d layers with nxn (n > 1) spacial kernels are compressed using **Tucker2 low-rank approximation** with **EVBMF rank selection**.
+  - nn.Conv2d layers with 1x1 spacial kernels and nn.Linear layers are compressed using **SVD low-rank approximation** with **EVBMF rank selection**.
+  - We compress the model by alternating compression and fine-tuning steps. 
+  - **By default all nn.Conv2d and nn.Linear layers are compressed. Default `vbmf_wekenen_factor` is 0.8**. 
+  
 
-
-
-- **CompressorManual**: manualy specified ranks are used
-
-    - Tucker2/CP3/CP4 decomposition is used for nn.Conv2d layers with kernels (n, n), n > 1
-    - SVD is used for nn.Linear and nn.Conv2d with kernels (1, 1)
-    - You can optionally specify:
-        - which decomposition to use for nn.Conv2d layers with kernels (n, n), n > 1 (```conv2d_nn_decomposition = tucker2```)
-        - which ranks to use (```ranks = {lname : rank for lname in lnames}```, if you don't want to compress layer set ```None``` instead ```rank``` value)
+- **CompressorPR**: multi-stage compression of a neural network using low-rank approximations with automated rank selection based on layers' parameter reduction rate.
+  - nn.Conv2d layers with nxn (n > 1) spacial kernels are compressed using CP3/CP4/Tucker2 low-rank approximation with **rank selection based on layers' parameter reduction rate**.
+  - nn.Conv2d layers with 1x1 spacial kernels and nn.Linear layers are compressed using **SVD low-rank approximation** with **rank selection based on layers' parameter reduction rate**.
+  - We compress the model by alternating compression and fine-tuning steps. 
+  - **By default all nn.Conv2d and nn.Linear layers are compressed. Default `param_reduction_rate` is 2. Default `decomposition` for nn.Conv2d layers with nxn (n > 1) spacial kernels is Tucker2**.
         
  
 ## Compiling the documentation
