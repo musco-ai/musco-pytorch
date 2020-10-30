@@ -170,7 +170,7 @@ Thus, `compressor.compressed_model` is a compressed model that is build from PyT
 
 
 #### Define a model compression schedule using default configs 
-To compress  nn.Conv2d and nn.Linear layers using default compression settings, you can use the follwing congif generation utils
+To compress  nn.Conv2d and nn.Linear layers using default compression settings, you can use the follwing config generation utils
 ```
 from musco.pytorch.compressor.config_gen import generate_model_compr_kwargs
 
@@ -197,7 +197,7 @@ layer_compr_kwargs = {
     curr_compr_iter : 0,
 }
 ```
-You can modify a generated config by modifying a Python dictionary
+You can modify the generated config by modifying a Python dictionary
 ```
 config.update({'conv1': None,
                'fc': None,
@@ -210,7 +210,7 @@ config.update({'conv1': None,
                   
 model_compr_kwargs = config
 ```
-Or you can save a generated config to `.yaml` file, manually modify `.yaml` file, and load the resulting config
+Or you can save the generated config to `.yaml` file, manually modify `.yaml` file, and load the resulting config
 ```
 import collections
 import yaml
