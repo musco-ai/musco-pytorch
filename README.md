@@ -137,6 +137,7 @@ Assume that each layer is compressed twice (`nglobal_compress_iters` = 2) and th
 
 ```
 from musco.pytorch import Compressor
+import copy
 
 compressor = Compressor(copy.deepcopy(model),
                         model_stats,
