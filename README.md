@@ -32,7 +32,7 @@ model_stats = FlopCo(model, device = device)
 compressor = Compressor(model,
                         model_stats,
                         ft_every=5, 
-                        nglobal_compress_iters=2б
+                        nglobal_compress_iters=2,
                         config_type = 'vbmf')
 
 # Compressor decomposes 5 layers on each iteration.
