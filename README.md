@@ -169,25 +169,71 @@ standardize_model(compressor.compressed_model)
 Thus, `compressor.compressed_model` is a compressed model that is build from PyTorch standard layers.
 
 
-#### Special types of *Compressor*
-To compress all nn.Conv2d and nn.Linear layers using default compression settings, you can use the following children classes of *Compressor*
+#### Define a model compression schedule using default configs 
+To compress  nn.Conv2d and nn.Linear layers using default compression settings, you can use the follwing congif generation utils
 ```
-from musco.pytorch import CompressorVBMF, CompressorPR
+from musco.pytorch.compressor.config_gen import generate_model_compr_kwargs
+
+config = generate_model_compr_kwargs(model_stats, config_type = 'vbmf')
 
 ```
+- If `config_type` is 'none', none of the layers is compressed by default.
+- If `config_type` is 'vbmf':
+    - nn.Conv2d layers with nxn (n > 1) spacial kernels are compressed using **Tucker2 low-rank approximation** with **EVBMF rank selection**.
+    - nn.Conv2d layers with 1x1 spacial kernels and nn.Linear layers are compressed using **SVD low-rank approximation** with **EVBMF rank selection**.
+    - By default all nn.Conv2d and nn.Linear layers are compressed. Default `vbmf_wekenen_factor` is 0.8
+- If `config_type` is 'param_reduciton':
+    - nn.Conv2d layers with nxn (n > 1) spacial kernels are compressed using CP3/CP4/Tucker2 low-rank approximation with **rank selection based on layers' parameter reduction rate**.
+    - nn.Conv2d layers with 1x1 spacial kernels and nn.Linear layers are compressed using **SVD low-rank approximation** with **rank selection based on layers' parameter reduction rate**.
+    - By default all nn.Conv2d and nn.Linear layers are compressed. Default `param_reduction_rate` is 2. Default `decomposition` for nn.Conv2d layers with nxn (n > 1) spacial kernels is Tucker2.
+- If `config_type` is 'template', a dictionary-placeholder `{lname : layer_compr_kwargs}` is generated, where
+```
+layer_compr_kwargs = {
+    decomposition : None,
+    rank_selection : None,
+    manual_rank : None,
+    parameter_reduction_rate : None,
+    vbmf_weakenen_factor : None,
+    curr_compr_iter : 0,
+}
+```
+You can modify a generated config by modifying a Python dictionary
+```
+config.update({'conv1': None,
+               'fc': None,
+               'layer2.1.conv2': {
+                   'decomposition': 'cp4',
+                   'rank_selection': 'param_reduction',
+                   'param_reduction': 1.5,
+                   'curr_compr_iter': 0
+                  },})
+                  
+model_compr_kwargs = config
+```
+Or you can save a generated config to `.yaml` file, manually modify `.yaml` file, and load the resulting config
+```
+import collections
+import yaml
+from yaml.representer import Representer
+yaml.add_representer(collections.defaultdict, Representer.represent_dict)
 
-- **CompressorVBMF**: multi-stage compression of a neural network using low-rank approximations with automated rank selection based on EVBMF.
-  - nn.Conv2d layers with nxn (n > 1) spacial kernels are compressed using **Tucker2 low-rank approximation** with **EVBMF rank selection**.
-  - nn.Conv2d layers with 1x1 spacial kernels and nn.Linear layers are compressed using **SVD low-rank approximation** with **EVBMF rank selection**.
-  - We compress the model by alternating compression and fine-tuning steps. 
-  - **By default all nn.Conv2d and nn.Linear layers are compressed. Default `vbmf_wekenen_factor` is 0.8**. 
-  
+# Write a generated config to .yaml file
+yaml_file = "config.yaml"
 
-- **CompressorPR**: multi-stage compression of a neural network using low-rank approximations with automated rank selection based on layers' parameter reduction rate.
-  - nn.Conv2d layers with nxn (n > 1) spacial kernels are compressed using CP3/CP4/Tucker2 low-rank approximation with **rank selection based on layers' parameter reduction rate**.
-  - nn.Conv2d layers with 1x1 spacial kernels and nn.Linear layers are compressed using **SVD low-rank approximation** with **rank selection based on layers' parameter reduction rate**.
-  - We compress the model by alternating compression and fine-tuning steps. 
-  - **By default all nn.Conv2d and nn.Linear layers are compressed. Default `param_reduction_rate` is 2. Default `decomposition` for nn.Conv2d layers with nxn (n > 1) spacial kernels is Tucker2**.
+with open(yaml_file, "w") as f:  
+    yaml.dump(config, f)
+    
+# Modify .yaml file if needed
+# Read from .yaml file
+with open(yaml_file, "r") as f:
+    model_compr_kwargs = yaml.load(f, Loader=yaml.SafeLoader)
+```
+To validate the correctness of the resulting config run
+```
+from musco.pytorch.compressor.config_gen import  validate_model_compr_kwargs
+
+validate_model_compr_kwargs(model_compr_kwargs)
+```
         
  
 ## Compiling the documentation
