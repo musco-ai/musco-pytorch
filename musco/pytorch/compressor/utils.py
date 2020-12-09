@@ -12,6 +12,7 @@ from .layers.cp3 import CP3DecomposedLayer
 from .layers.cp4 import CP4DecomposedLayer
 from .layers.svd_layer import SVDDecomposedLayer, SVDDecomposedConvLayer
 from .layers.base import DecomposedLayer
+from .layers.cp3_conv1d import CP3DecomposedLayerConv1D
                         
 
 def get_compressed_model(model,
@@ -87,6 +88,10 @@ def get_compressed_model(model,
             elif decomposition in ['cp4', 'qcp4']:
                 decomposed_layer = CP4DecomposedLayer(layer, subm_names[-1], algo_kwargs, **compr_kwargs)
                 
+            elif decomposition in ['cp3_conv1d', 'qcp3_conv1d']:
+                decomposed_layer = CP3DecomposedLayerConv1D(layer, subm_names[-1], algo_kwargs, **compr_kwargs)
+    
+                
             elif decomposition == 'svd':
                 if layer_type == nn.Conv2d:
                     decomposed_layer = SVDDecomposedConvLayer(layer, subm_names[-1], algo_kwargs, **compr_kwargs)
@@ -113,6 +118,24 @@ def get_compressed_model(model,
         return compressed_model
 
 
+# def standardize_model(model):
+#     """Replace custom layers with standard nn.Module layers.
+    
+#     Relplace each layer of type DecomposedLayer with nn.Sequential.
+#     """
+
+#     for mname, m in model.named_modules():
+#         if isinstance(m, DecomposedLayer):
+#             subm_names = mname.strip().split('.')
+
+#             if len(subm_names) > 1:
+#                 m = model.__getattr__(subm_names[0])
+#                 for s in subm_names[1:-1]:
+#                     m = m.__getattr__(s)
+#                 m.__setattr__(subm_names[-1], m.__getattr__(subm_names[-1]).new_layers)
+#             else:
+#                 model.__setattr__(subm_names[-1], m.new_layers)
+                
 def standardize_model(model):
     """Replace custom layers with standard nn.Module layers.
     
@@ -127,6 +150,23 @@ def standardize_model(model):
                 m = model.__getattr__(subm_names[0])
                 for s in subm_names[1:-1]:
                     m = m.__getattr__(s)
+                    
+                m_dict = m.__getattr__(subm_names[-1]).__dict__
+                m_dict_new_layer = m.__getattr__(subm_names[-1]).new_layers.__dict__
+                
                 m.__setattr__(subm_names[-1], m.__getattr__(subm_names[-1]).new_layers)
+                
+                m = m.__getattr__(subm_names[-1])
+                for field in set(m_dict.keys()) - set(m_dict_new_layer.keys()):
+                    m.__setattr__(field, m_dict[field])
+
             else:
-                model.__setattr__(subm_names[-1], m.new_layers)
+                
+                m_dict = model.__getattr__(subm_names[-1]).__dict__
+                m_dict_new_layer = model.__getattr__(subm_names[-1]).new_layers.__dict__
+                
+                model.__setattr__(subm_names[-1], m.new_layers)      
+                
+                m = model.__getattr__(subm_names[-1])
+                for field in set(m_dict.keys()) - set(m_dict_new_layer.keys()):
+                    m.__setattr__(field, m_dict[field])
