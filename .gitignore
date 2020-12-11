@@ -1,6 +1,7 @@
 .ip*
 *.pyc
 .ipynb_checkpoints
+.pytest_cache
 *__pycache__
 *__pycache__/*
 *.pth
