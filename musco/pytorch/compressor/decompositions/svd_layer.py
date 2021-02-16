@@ -136,6 +136,8 @@ class SVDDecomposedConvLayer():
         self.layer = layer
         self.pretrained = pretrained
         
+        self.min_rank = 2
+        
         #print(layer)
        
         if  isinstance(self.layer, nn.Sequential):
