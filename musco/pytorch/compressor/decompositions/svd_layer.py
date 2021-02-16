@@ -163,11 +163,11 @@ class SVDDecomposedConvLayer():
             self.rank = rank
         elif rank_selection == 'param_reduction':
             if  isinstance(self.layer, nn.Sequential):
-                prev_rank = self.layer[0].out_features
+                prev_rank = self.layer[0].out_channels
             else:
                 prev_rank = None
 
-            self.rank = estimate_rank_for_compression_rate((self.out_features, self.in_features),
+            self.rank = estimate_rank_for_compression_rate((self.out_channels, self.in_channels),
                                                            rate = param_reduction_rate,
                                                            key = 'svd',
                                                            prev_rank = prev_rank,
